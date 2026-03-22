@@ -20,9 +20,11 @@ class PlatCrudController extends AbstractCrudController
             TextField::new('titre_plat', 'Nom du plat'),
             TextField::new('photo', 'Nom de la photo (ex: buche.jpg)'),
 
-            // La relation multiple (ManyToMany)
             AssociationField::new('allergenes', 'Allergènes')
-                ->setFormTypeOption('choice_label', 'libelle')
+                ->setFormTypeOption('choice_label', 'libelle'),
+
+            AssociationField::new('menus', 'Menus associés')
+                ->setFormTypeOption('choice_label', 'titre'),
         ];
     }
 }

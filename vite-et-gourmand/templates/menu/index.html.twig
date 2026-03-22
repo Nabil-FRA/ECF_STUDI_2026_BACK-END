@@ -1,0 +1,188 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Nos Menus - Vite & Gourmand{% endblock %}
+
+{% block body %}
+<div style="max-width: 1200px; margin: 0 auto; padding: 20px;">
+    <h1>Nos Menus</h1>
+
+    {# ============================================= #}
+    {# ZONE DES FILTRES                              #}
+    {# Chaque filtre correspond à un critère du      #}
+    {# cahier des charges : régime, thème, prix,     #}
+    {# fourchette de prix, nombre de personnes       #}
+    {# ============================================= #}
+    <div style="background: #f8f9fa; padding: 20px; margin-bottom: 30px; border-radius: 8px; display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end;">
+
+        {# Filtre par régime (Végétarien, Vegan, Classique...) #}
+        <div>
+            <label for="filtre-regime"><strong>Régime :</strong></label><br>
+            <select id="filtre-regime" style="padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
+                <option value="">Tous</option>
+                {% for regime in regimes %}
+                    <option value="{{ regime.id }}">{{ regime.libelle }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        {# Filtre par thème (Noël, Pâques, Événement...) #}
+        <div>
+            <label for="filtre-theme"><strong>Thème :</strong></label><br>
+            <select id="filtre-theme" style="padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
+                <option value="">Tous</option>
+                {% for theme in themes %}
+                    <option value="{{ theme.id }}">{{ theme.libelle }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        {# Filtre par prix minimum (fourchette basse) #}
+        <div>
+            <label for="filtre-prix-min"><strong>Prix min (€) :</strong></label><br>
+            <input type="number" id="filtre-prix-min" min="0" step="0.5" placeholder="0"
+                   style="padding: 8px; width: 80px; border-radius: 4px; border: 1px solid #ccc;">
+        </div>
+
+        {# Filtre par prix maximum #}
+        <div>
+            <label for="filtre-prix-max"><strong>Prix max (€) :</strong></label><br>
+            <input type="number" id="filtre-prix-max" min="0" step="0.5" placeholder="100"
+                   style="padding: 8px; width: 80px; border-radius: 4px; border: 1px solid #ccc;">
+        </div>
+
+        {# Filtre par nombre de personnes #}
+        <div>
+            <label for="filtre-personnes"><strong>Nb personnes :</strong></label><br>
+            <input type="number" id="filtre-personnes" min="1" placeholder="Ex: 10"
+                   style="padding: 8px; width: 80px; border-radius: 4px; border: 1px solid #ccc;">
+        </div>
+    </div>
+
+    {# ============================================= #}
+    {# ZONE D'AFFICHAGE DES MENUS                    #}
+    {# Au chargement : Twig affiche tous les menus   #}
+    {# Après un filtre : JavaScript remplace le HTML #}
+    {# ============================================= #}
+    <div id="menus-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">
+        {% for menu in menus %}
+            <div class="menu-card" style="border: 1px solid #ddd; padding: 20px; border-radius: 8px; background: #fff;">
+                <h2 style="margin-top: 0;">{{ menu.titre }}</h2>
+
+                {# Description tronquée à 100 caractères pour la vue globale #}
+                <p style="color: #666;">
+                    {{ menu.description|length > 100 ? menu.description|slice(0, 100) ~ '...' : menu.description }}
+                </p>
+
+                <p><strong>{{ menu.prixParPersonne }} € / pers.</strong></p>
+                <p>Min. {{ menu.nombrePersonneMinimum }} personnes</p>
+
+                {# Badges thème et régime #}
+                {% if menu.theme %}
+                    <span style="background: #e9ecef; padding: 3px 8px; border-radius: 4px; font-size: 0.85em;">
+                        {{ menu.theme.libelle }}
+                    </span>
+                {% endif %}
+                {% if menu.regime %}
+                    <span style="background: #d4edda; padding: 3px 8px; border-radius: 4px; font-size: 0.85em;">
+                        {{ menu.regime.libelle }}
+                    </span>
+                {% endif %}
+
+                {# Stock restant avec couleur rouge si bientôt épuisé #}
+                {% if menu.quantiteRestante is not null %}
+                    <p style="color: {% if menu.quantiteRestante <= 3 %}red{% else %}green{% endif %}; font-size: 0.85em;">
+                        {{ menu.quantiteRestante }} restant(s)
+                    </p>
+                {% endif %}
+
+                {# Bouton vers la page détail #}
+                <a href="{{ path('app_menu_detail', {id: menu.id}) }}"
+                   style="display: inline-block; margin-top: 10px; padding: 8px 16px; background: #007bff; color: #fff; text-decoration: none; border-radius: 4px;">
+                    Voir le détail
+                </a>
+            </div>
+        {% else %}
+            <p>Aucun menu disponible pour le moment.</p>
+        {% endfor %}
+    </div>
+</div>
+
+{# ============================================= #}
+{# JAVASCRIPT AJAX                               #}
+{# À chaque changement de filtre, le JS appelle  #}
+{# /api/menus avec les paramètres, reçoit du     #}
+{# JSON et reconstruit les cartes sans recharger  #}
+{# la page                                       #}
+{# ============================================= #}
+<script>
+function initFiltres() {
+    const selectRegime = document.getElementById('filtre-regime');
+    const selectTheme = document.getElementById('filtre-theme');
+    const inputPrixMin = document.getElementById('filtre-prix-min');
+    const inputPrixMax = document.getElementById('filtre-prix-max');
+    const inputPersonnes = document.getElementById('filtre-personnes');
+    const container = document.getElementById('menus-container');
+
+    if (!selectRegime || !container) return;
+
+    function chargerMenus() {
+        const params = new URLSearchParams();
+        if (selectRegime.value) params.append('regime', selectRegime.value);
+        if (selectTheme.value) params.append('theme', selectTheme.value);
+        if (inputPrixMin.value) params.append('prix_min', inputPrixMin.value);
+        if (inputPrixMax.value) params.append('prix_max', inputPrixMax.value);
+        if (inputPersonnes.value) params.append('nb_personnes', inputPersonnes.value);
+
+        fetch('/api/menus?' + params.toString())
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                container.innerHTML = '';
+
+                if (data.length === 0) {
+                    container.innerHTML = '<p>Aucun menu ne correspond à vos critères.</p>';
+                    return;
+                }
+
+                data.forEach(function(menu) {
+                    var desc = menu.description
+                        ? (menu.description.length > 100 ? menu.description.substring(0, 100) + '...' : menu.description)
+                        : '';
+
+                    var stockColor = menu.quantite_restante <= 3 ? 'red' : 'green';
+
+                    var badges = '';
+                    if (menu.theme) {
+                        badges += '<span style="background: #e9ecef; padding: 3px 8px; border-radius: 4px; font-size: 0.85em;">' + menu.theme + '</span> ';
+                    }
+                    if (menu.regime) {
+                        badges += '<span style="background: #d4edda; padding: 3px 8px; border-radius: 4px; font-size: 0.85em;">' + menu.regime + '</span>';
+                    }
+
+                    var card = document.createElement('div');
+                    card.style.cssText = "border: 1px solid #ddd; padding: 20px; border-radius: 8px; background: #fff;";
+                    card.innerHTML =
+                        '<h2 style="margin-top: 0;">' + menu.titre + '</h2>' +
+                        '<p style="color: #666;">' + desc + '</p>' +
+                        '<p><strong>' + menu.prix_par_personne + ' € / pers.</strong></p>' +
+                        '<p>Min. ' + menu.nombre_personne_minimum + ' personnes</p>' +
+                        badges +
+                        '<p style="color: ' + stockColor + '; font-size: 0.85em;">' + menu.quantite_restante + ' restant(s)</p>' +
+                        '<a href="/menu/' + menu.id + '" style="display: inline-block; margin-top: 10px; padding: 8px 16px; background: #007bff; color: #fff; text-decoration: none; border-radius: 4px;">Voir le détail</a>';
+                    container.appendChild(card);
+                });
+            })
+            .catch(function(error) { console.error("Erreur AJAX :", error); });
+    }
+
+    selectRegime.onchange = chargerMenus;
+    selectTheme.onchange = chargerMenus;
+    inputPrixMin.oninput = chargerMenus;
+    inputPrixMax.oninput = chargerMenus;
+    inputPersonnes.oninput = chargerMenus;
+}
+
+// Se lance au chargement normal ET au retour arrière
+document.addEventListener('DOMContentLoaded', initFiltres);
+document.addEventListener('turbo:load', initFiltres);
+</script>
+{% endblock %}

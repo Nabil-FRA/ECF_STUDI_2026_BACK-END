@@ -1,0 +1,77 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Notre Carte - Vite et Gourmand{% endblock %}
+
+{% block body %}
+<div style="max-width: 1200px; margin: 0 auto; padding: 20px;">
+    <h1>Notre Carte</h1>
+
+    {# --- 1. LA ZONE DES FILTRES --- #}
+    <div style="background: #f8f9fa; padding: 15px; margin-bottom: 20px; border-radius: 8px;">
+        <strong>Filtrer par : </strong>
+
+        <select id="filtre-regime" style="padding: 5px; margin-right: 15px;">
+            <option value="">Tous les régimes</option>
+            {% for regime in regimes %}
+                <option value="{{ regime.id }}">{{ regime.libelle }}</option>
+            {% endfor %}
+        </select>
+
+        <select id="filtre-allergene" style="padding: 5px;">
+            <option value="">Tous les allergènes (Exclure)</option>
+            {% for allergene in allergenes %}
+                <option value="{{ allergene.id }}">Sans {{ allergene.libelle }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    {# --- 2. LA ZONE D'AFFICHAGE DES PLATS --- #}
+    {# On met un ID ici pour que le JavaScript puisse cibler cette zone et la modifier #}
+    <div id="plats-container" style="display: flex; flex-wrap: wrap; gap: 20px;">
+        {% for plat in plats %}
+            <div class="plat-card" style="border: 1px solid #ddd; padding: 15px; width: 250px; border-radius: 8px;">
+                <h3>{{ plat.titrePlat }}</h3>
+                {# Si tu as des photos, tu pourras décommenter cette ligne plus tard : #}
+                {# <img src="{{ asset('uploads/photos/' ~ plat.photo) }}" style="max-width: 100%;"> #}
+            </div>
+        {% endfor %}
+    </div>
+</div>
+
+{# --- 3. LE MOTEUR AJAX (JAVASCRIPT) --- #}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // On cible nos deux menus déroulants et la zone des plats
+        const selectRegime = document.getElementById('filtre-regime');
+        const selectAllergene = document.getElementById('filtre-allergene');
+        const platsContainer = document.getElementById('plats-container');
+
+        // La fonction qui se lance à chaque fois qu'on change un filtre
+        function chargerPlatsFiltres() {
+            const regimeId = selectRegime.value;
+            const allergeneId = selectAllergene.value;
+
+            // On appelle silencieusement notre route API (créée à l'étape précédente)
+            fetch(`/api/plats?regime=${regimeId}&allergene=${allergeneId}`)
+                .then(response => response.json())
+                .then(data => {
+                    // 1. On vide la zone des plats
+                    platsContainer.innerHTML = '';
+
+                    // 2. On la remplit avec les nouvelles données reçues en JSON
+                    data.forEach(plat => {
+                        const card = document.createElement('div');
+                        card.style.cssText = "border: 1px solid #ddd; padding: 15px; width: 250px; border-radius: 8px;";
+                        card.innerHTML = `<h3>${plat.titre}</h3>`;
+                        platsContainer.appendChild(card);
+                    });
+                })
+                .catch(error => console.error("Erreur lors du filtrage AJAX :", error));
+        }
+
+        // On écoute le moindre changement (clic) sur les menus déroulants
+        selectRegime.addEventListener('change', chargerPlatsFiltres);
+        selectAllergene.addEventListener('change', chargerPlatsFiltres);
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,137 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ menu.titre }} - Vite & Gourmand{% endblock %}
+
+{% block body %}
+<div style="max-width: 900px; margin: 0 auto; padding: 20px;">
+
+    {# Lien retour #}
+    <a href="{{ path('app_menus') }}" style="color: #007bff; text-decoration: none;">&larr; Retour aux menus</a>
+
+    <h1 style="margin-top: 15px;">{{ menu.titre }}</h1>
+
+    {# Badges thème et régime #}
+    <div style="margin-bottom: 15px;">
+        {% if menu.theme %}
+            <span style="background: #e9ecef; padding: 5px 12px; border-radius: 4px;">
+                {{ menu.theme.libelle }}
+            </span>
+        {% endif %}
+        {% if menu.regime %}
+            <span style="background: #d4edda; padding: 5px 12px; border-radius: 4px;">
+                {{ menu.regime.libelle }}
+            </span>
+        {% endif %}
+    </div>
+
+    {# Description #}
+    <div style="margin-bottom: 20px;">
+        <h3>Description</h3>
+        <p>{{ menu.description }}</p>
+    </div>
+
+    {# Infos prix et personnes #}
+    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+        <p><strong>Prix :</strong> {{ menu.prixParPersonne }} € par personne</p>
+        <p><strong>Minimum :</strong> {{ menu.nombrePersonneMinimum }} personnes</p>
+        <p><strong>Prix minimum total :</strong> {{ menu.prixParPersonne * menu.nombrePersonneMinimum }} €</p>
+        {% if menu.quantiteRestante is not null %}
+            <p>
+                <strong>Disponibilité :</strong>
+                <span style="color: {% if menu.quantiteRestante <= 3 %}red{% else %}green{% endif %}; font-weight: bold;">
+                    {{ menu.quantiteRestante }} commande(s) restante(s)
+                </span>
+            </p>
+        {% endif %}
+    </div>
+
+    {# ============================================= #}
+    {# CONDITIONS - bien en évidence comme demandé    #}
+    {# dans le cahier des charges                    #}
+    {# ============================================= #}
+    {% if menu.conditions %}
+        <div style="background: #fff3cd; border: 2px solid #ffc107; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h3 style="margin-top: 0; color: #856404;">⚠ Conditions importantes</h3>
+            <p style="color: #856404;">{{ menu.conditions }}</p>
+        </div>
+    {% endif %}
+
+    {# ============================================= #}
+    {# LISTE DES PLATS du menu                       #}
+    {# Avec les allergènes de chaque plat            #}
+    {# ============================================= #}
+    <div style="margin-bottom: 20px;">
+        <h3>Plats inclus dans ce menu</h3>
+        {% if menu.plats|length > 0 %}
+            <div style="display: flex; flex-wrap: wrap; gap: 15px;">
+                {% for plat in menu.plats %}
+                    <div style="border: 1px solid #ddd; padding: 15px; border-radius: 8px; width: 220px; background: #fff;">
+                        {# Photo du plat si elle existe #}
+                        {% if plat.photo %}
+                            <img src="{{ asset('uploads/photos/' ~ plat.photo) }}"
+                                 alt="{{ plat.titrePlat }}"
+                                 style="max-width: 100%; border-radius: 4px; margin-bottom: 10px;">
+                        {% endif %}
+
+                        <h4 style="margin: 0 0 8px 0;">{{ plat.titrePlat }}</h4>
+
+                        {# Allergènes du plat #}
+                        {% if plat.allergenes|length > 0 %}
+                            <p style="font-size: 0.85em; color: #dc3545; margin: 0;">
+                                <strong>Allergènes :</strong>
+                                {% for allergene in plat.allergenes %}
+                                    {{ allergene.libelle }}{% if not loop.last %}, {% endif %}
+                                {% endfor %}
+                            </p>
+                        {% else %}
+                            <p style="font-size: 0.85em; color: #28a745; margin: 0;">Aucun allergène</p>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p>Aucun plat associé à ce menu pour le moment.</p>
+        {% endif %}
+    </div>
+
+    {# ============================================= #}
+    {# GALERIE D'IMAGES du menu                      #}
+    {# ============================================= #}
+    {% if menu.menuImages|length > 0 %}
+        <div style="margin-bottom: 20px;">
+            <h3>Galerie</h3>
+            <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                {% for image in menu.menuImages %}
+                    <img src="{{ asset('uploads/menus/' ~ image.urlImage) }}"
+                         alt="Image du menu {{ menu.titre }}"
+                         style="max-width: 250px; border-radius: 8px;">
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
+    {# ============================================= #}
+    {# BOUTON COMMANDER                              #}
+    {# Si connecté → page commande avec menu pré-    #}
+    {# rempli. Sinon → redirection vers login        #}
+    {# ============================================= #}
+    <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px; text-align: center;">
+        {% if app.user %}
+            <a href="{{ path('app_commande', {menu_id: menu.id}) }}"
+               style="display: inline-block; padding: 12px 30px; background: #28a745; color: #fff; text-decoration: none; border-radius: 6px; font-size: 1.1em; font-weight: bold;">
+                Commander ce menu
+            </a>
+        {% else %}
+            <p style="margin-bottom: 10px;">Connectez-vous pour commander ce menu.</p>
+            <a href="{{ path('app_login') }}"
+               style="display: inline-block; padding: 10px 25px; background: #007bff; color: #fff; text-decoration: none; border-radius: 6px;">
+                Se connecter
+            </a>
+            <a href="{{ path('app_register') }}"
+               style="display: inline-block; padding: 10px 25px; background: #6c757d; color: #fff; text-decoration: none; border-radius: 6px; margin-left: 10px;">
+                Créer un compte
+            </a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

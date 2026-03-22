@@ -9,6 +9,7 @@ use EasyCorp\Bundle\EasyAdminBundle\Field\EmailField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\TextField;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Crud;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\Form\Extension\Core\Type\PasswordType;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 class UtilisateurCrudController extends AbstractCrudController
@@ -38,9 +39,10 @@ class UtilisateurCrudController extends AbstractCrudController
                 ->formatValue(fn($value) => $value ? $value->getLibelle() : ''),
         ];
 
-        // Le mot de passe ne s'affiche que sur les pages de création/édition
+
         if ($pageName === Crud::PAGE_NEW || $pageName === Crud::PAGE_EDIT) {
             $fields[] = TextField::new('plainPassword', 'Mot de passe')
+                ->setFormType(PasswordType::class)
                 ->setFormTypeOption('mapped', false)
                 ->setRequired($pageName === Crud::PAGE_NEW);
         }
@@ -60,14 +62,15 @@ class UtilisateurCrudController extends AbstractCrudController
         parent::updateEntity($em, $entityInstance);
     }
 
-    private function hashPassword($entity): void
+    private function hashPassword(Utilisateur $entity): void
     {
-        // Récupère la valeur saisie dans le champ non-mappé
-        $plainPassword = $this->getContext()
-            ->getRequest()
-            ->request->all()['Utilisateur']['plainPassword'] ?? null;
+        $request = $this->getContext()->getRequest();
 
-        if ($plainPassword) {
+        $formData = $request->request->all('Utilisateur');
+        $plainPassword = $formData['plainPassword'] ?? null;
+
+
+        if (!empty($plainPassword)) {
             $hashedPassword = $this->passwordHasher->hashPassword($entity, $plainPassword);
             $entity->setPassword($hashedPassword);
         }
