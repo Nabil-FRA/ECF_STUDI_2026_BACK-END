@@ -29,9 +29,9 @@ class DashboardController extends AbstractDashboardController
         yield MenuItem::linkToDashboard('Accueil Admin', 'fa fa-home');
 
         yield MenuItem::section('Catalogue');
-        // La nouvelle syntaxe EA5 : linkTo(LeControleur::class, 'Le Nom', 'icone')
         yield MenuItem::linkTo(MenuCrudController::class, 'Les Menus', 'fas fa-utensils');
         yield MenuItem::linkTo(PlatCrudController::class, 'Les Plats', 'fas fa-hamburger');
+        yield MenuItem::linkTo(MenuImageCrudController::class, 'Images des Menus', 'fas fa-image');
 
         yield MenuItem::section('Catégories & Filtres');
         yield MenuItem::linkTo(ThemeCrudController::class, 'Thèmes', 'fas fa-star');
