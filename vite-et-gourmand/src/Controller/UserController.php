@@ -1,0 +1,187 @@
+<?php
+
+namespace App\Controller;
+
+use App\Entity\Avis;
+use App\Entity\Commande;
+use App\Form\AvisFormType;
+use App\Form\CommandeFormType;
+use App\Form\ProfilFormType;
+use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
+
+#[Route('/espace')]
+#[IsGranted('ROLE_USER')]
+class UserController extends AbstractController
+{
+    /**
+     * Page principale : liste des commandes de l'utilisateur
+     */
+    #[Route('/', name: 'app_user_espace')]
+    public function index(): Response
+    {
+        $user = $this->getUser();
+
+        return $this->render('user/index.html.twig', [
+            'commandes' => $user->getCommandes(),
+        ]);
+    }
+
+    /**
+     * Modifier son profil
+     */
+    #[Route('/profil', name: 'app_user_profil')]
+    public function profil(Request $request, EntityManagerInterface $em): Response
+    {
+        $user = $this->getUser();
+        $form = $this->createForm(ProfilFormType::class, $user);
+        $form->handleRequest($request);
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            $em->flush();
+            $this->addFlash('success', 'Vos informations ont été mises à jour.');
+            return $this->redirectToRoute('app_user_profil');
+        }
+
+        return $this->render('user/profil.html.twig', [
+            'form' => $form,
+        ]);
+    }
+
+    /**
+     * Voir le détail d'une commande
+     */
+    #[Route('/commande/{id}', name: 'app_user_commande_detail')]
+    public function commandeDetail(Commande $commande): Response
+    {
+        if ($commande->getUtilisateur() !== $this->getUser()) {
+            throw $this->createAccessDeniedException();
+        }
+
+        return $this->render('user/commande_detail.html.twig', [
+            'commande' => $commande,
+        ]);
+    }
+
+    /**
+     * Modifier une commande (tant qu'elle n'est pas "accepté")
+     */
+    #[Route('/commande/{id}/modifier', name: 'app_user_commande_modifier')]
+    public function commandeModifier(Commande $commande, Request $request, EntityManagerInterface $em): Response
+    {
+        if ($commande->getUtilisateur() !== $this->getUser()) {
+            throw $this->createAccessDeniedException();
+        }
+
+        if ($commande->getStatut() !== 'en cours') {
+            $this->addFlash('error', 'Cette commande ne peut plus être modifiée.');
+            return $this->redirectToRoute('app_user_commande_detail', ['id' => $commande->getId()]);
+        }
+
+        $form = $this->createForm(CommandeFormType::class, $commande);
+        $form->handleRequest($request);
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            $menu = $commande->getMenu();
+            $nbPersonnes = $commande->getNombrePersonne();
+
+            // Recalculer le prix
+            $prixMenu = $menu->getPrixParPersonne() * $nbPersonnes;
+            if ($nbPersonnes >= $menu->getNombrePersonneMinimum() + 5) {
+                $prixMenu = $prixMenu * 0.9;
+            }
+
+            $lieuPrestation = strtolower($commande->getLieuPrestation());
+            $prixLivraison = str_contains($lieuPrestation, 'bordeaux') ? 0.0 : 5.0;
+
+            $commande->setPrixMenu($prixMenu);
+            $commande->setPrixLivraison($prixLivraison);
+
+            $em->flush();
+            $this->addFlash('success', 'Votre commande a été modifiée.');
+            return $this->redirectToRoute('app_user_commande_detail', ['id' => $commande->getId()]);
+        }
+
+        return $this->render('user/commande_modifier.html.twig', [
+            'form' => $form,
+            'commande' => $commande,
+        ]);
+    }
+
+    /**
+     * Annuler une commande (tant qu'elle n'est pas "accepté")
+     */
+    #[Route('/commande/{id}/annuler', name: 'app_user_commande_annuler')]
+    public function commandeAnnuler(Commande $commande, EntityManagerInterface $em): Response
+    {
+        if ($commande->getUtilisateur() !== $this->getUser()) {
+            throw $this->createAccessDeniedException();
+        }
+
+        if ($commande->getStatut() !== 'en cours') {
+            $this->addFlash('error', 'Cette commande ne peut plus être annulée.');
+            return $this->redirectToRoute('app_user_commande_detail', ['id' => $commande->getId()]);
+        }
+
+        // Remettre le stock
+        $menu = $commande->getMenu();
+        if ($menu->getQuantiteRestante() !== null) {
+            $menu->setQuantiteRestante($menu->getQuantiteRestante() + 1);
+        }
+
+        $commande->setStatut('annulée');
+        $em->flush();
+
+        $this->addFlash('success', 'Votre commande a été annulée.');
+        return $this->redirectToRoute('app_user_espace');
+    }
+
+    /**
+     * Donner un avis sur une commande terminée
+     */
+    #[Route('/commande/{id}/avis', name: 'app_user_avis')]
+    public function donnerAvis(Commande $commande, Request $request, EntityManagerInterface $em): Response
+    {
+        if ($commande->getUtilisateur() !== $this->getUser()) {
+            throw $this->createAccessDeniedException();
+        }
+
+        if ($commande->getStatut() !== 'terminée') {
+            $this->addFlash('error', 'Vous ne pouvez donner un avis que sur une commande terminée.');
+            return $this->redirectToRoute('app_user_commande_detail', ['id' => $commande->getId()]);
+        }
+
+        // Vérifier si un avis existe déjà
+        foreach ($commande->getAvis() as $existingAvis) {
+            if ($existingAvis->getUtilisateur() === $this->getUser()) {
+                $this->addFlash('error', 'Vous avez déjà donné un avis sur cette commande.');
+                return $this->redirectToRoute('app_user_commande_detail', ['id' => $commande->getId()]);
+            }
+        }
+
+        $avis = new Avis();
+        $form = $this->createForm(AvisFormType::class, $avis);
+        $form->handleRequest($request);
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            $avis->setUtilisateur($this->getUser());
+            $avis->setCommande($commande);
+            $avis->setStatut('en attente');
+
+            $em->persist($avis);
+            $em->flush();
+
+            $this->addFlash('success', 'Merci pour votre avis ! Il sera visible après validation.');
+            return $this->redirectToRoute('app_user_commande_detail', ['id' => $commande->getId()]);
+        }
+
+        return $this->render('user/avis.html.twig', [
+            'form' => $form,
+            'commande' => $commande,
+        ]);
+    }
+}
