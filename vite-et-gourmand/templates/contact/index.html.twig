@@ -1,0 +1,70 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Contact - Vite & Gourmand{% endblock %}
+
+{% block body %}
+<div style="max-width: 700px; margin: 0 auto; padding: 40px 20px;">
+
+    <h1 style="text-align: center; margin-bottom: 10px;">Contactez-nous</h1>
+    <p style="text-align: center; color: #666; margin-bottom: 30px;">
+        Une question, une demande particulière ? N'hésitez pas à nous écrire.
+    </p>
+
+    {# Messages flash #}
+    {% for message in app.flashes('success') %}
+        <div style="background: #d4edda; color: #155724; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
+            {{ message }}
+        </div>
+    {% endfor %}
+    {% for message in app.flashes('error') %}
+        <div style="background: #f8d7da; color: #721c24; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
+            {{ message }}
+        </div>
+    {% endfor %}
+
+    {% if not submitted %}
+        <form method="POST" action="{{ path('app_contact') }}" data-turbo="false" style="background: #f8f9fa; padding: 30px; border-radius: 8px;">
+
+            <div style="margin-bottom: 20px;">
+                <label for="email" style="display: block; font-weight: bold; margin-bottom: 5px;">Votre adresse email</label>
+                <input type="email" id="email" name="email" required
+                       value="{{ userEmail }}"
+                       placeholder="votre@email.com"
+                       style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <label for="titre" style="display: block; font-weight: bold; margin-bottom: 5px;">Sujet</label>
+                <input type="text" id="titre" name="titre" required
+                       placeholder="Ex: Demande d'information sur un menu"
+                       style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <label for="description" style="display: block; font-weight: bold; margin-bottom: 5px;">Votre message</label>
+                <textarea id="description" name="description" required rows="6"
+                          placeholder="Décrivez votre demande..."
+                          style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; resize: vertical;"></textarea>
+            </div>
+
+            <div style="text-align: center;">
+                <button type="submit"
+                        style="padding: 12px 35px; background: #007bff; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 1.1em; font-weight: bold;">
+                    Envoyer le message
+                </button>
+            </div>
+        </form>
+    {% else %}
+        <div style="text-align: center; padding: 40px;">
+            <div style="font-size: 3em; margin-bottom: 15px;">✅</div>
+            <p style="font-size: 1.2em; color: #333;">Merci pour votre message !</p>
+            <p style="color: #666;">Notre équipe vous répondra dans les plus brefs délais.</p>
+            <a href="{{ path('app_home') }}"
+               style="display: inline-block; margin-top: 20px; padding: 10px 25px; background: #007bff; color: #fff; text-decoration: none; border-radius: 6px;">
+                Retour à l'accueil
+            </a>
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}
