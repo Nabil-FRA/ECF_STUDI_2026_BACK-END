@@ -5,8 +5,6 @@ namespace App\Controller;
 use App\Repository\AvisRepository;
 use App\Repository\HoraireRepository;
 use App\Repository\PlatRepository;
-use App\Repository\RegimeRepository;
-use App\Repository\AllergeneRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -16,10 +14,8 @@ use Symfony\Component\Routing\Attribute\Route;
 class HomeController extends AbstractController
 {
     #[Route('/', name: 'app_home')]
-    public function index(
-        AvisRepository $avisRepository
-    ): Response {
-        // Récupérer uniquement les avis validés
+    public function index(AvisRepository $avisRepository): Response
+    {
         $avisValides = $avisRepository->findBy(
             ['statut' => 'validé'],
             ['id' => 'DESC']
@@ -27,6 +23,13 @@ class HomeController extends AbstractController
 
         return $this->render('home/index.html.twig', [
             'avis' => $avisValides,
+        ]);
+    }
+
+    public function footer(HoraireRepository $horaireRepository): Response
+    {
+        return $this->render('_partials/footer.html.twig', [
+            'horaires' => $horaireRepository->findAll(),
         ]);
     }
 
