@@ -1,77 +1,137 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Notre Carte - Vite et Gourmand{% endblock %}
+{% block title %}Vite & Gourmand - Traiteur à Bordeaux{% endblock %}
 
 {% block body %}
-<div style="max-width: 1200px; margin: 0 auto; padding: 20px;">
-    <h1>Notre Carte</h1>
 
-    {# --- 1. LA ZONE DES FILTRES --- #}
-    <div style="background: #f8f9fa; padding: 15px; margin-bottom: 20px; border-radius: 8px;">
-        <strong>Filtrer par : </strong>
-
-        <select id="filtre-regime" style="padding: 5px; margin-right: 15px;">
-            <option value="">Tous les régimes</option>
-            {% for regime in regimes %}
-                <option value="{{ regime.id }}">{{ regime.libelle }}</option>
-            {% endfor %}
-        </select>
-
-        <select id="filtre-allergene" style="padding: 5px;">
-            <option value="">Tous les allergènes (Exclure)</option>
-            {% for allergene in allergenes %}
-                <option value="{{ allergene.id }}">Sans {{ allergene.libelle }}</option>
-            {% endfor %}
-        </select>
-    </div>
-
-    {# --- 2. LA ZONE D'AFFICHAGE DES PLATS --- #}
-    {# On met un ID ici pour que le JavaScript puisse cibler cette zone et la modifier #}
-    <div id="plats-container" style="display: flex; flex-wrap: wrap; gap: 20px;">
-        {% for plat in plats %}
-            <div class="plat-card" style="border: 1px solid #ddd; padding: 15px; width: 250px; border-radius: 8px;">
-                <h3>{{ plat.titrePlat }}</h3>
-                {# Si tu as des photos, tu pourras décommenter cette ligne plus tard : #}
-                {# <img src="{{ asset('uploads/photos/' ~ plat.photo) }}" style="max-width: 100%;"> #}
-            </div>
-        {% endfor %}
+{# ============================================= #}
+{# SECTION HÉRO                                  #}
+{# ============================================= #}
+<div style="background: linear-gradient(135deg, #2c3e50, #3498db); color: #fff; padding: 80px 20px; text-align: center;">
+    <div style="max-width: 800px; margin: 0 auto;">
+        <h1 style="font-size: 2.5em; margin-bottom: 10px;">Vite & Gourmand</h1>
+        <p style="font-size: 1.3em; margin-bottom: 5px;">Traiteur d'exception à Bordeaux depuis 25 ans</p>
+        <p style="font-size: 1em; opacity: 0.9;">Des repas sur mesure pour tous vos événements</p>
+        <a href="{{ path('app_menus') }}"
+           style="display: inline-block; margin-top: 30px; padding: 15px 35px; background: #e74c3c; color: #fff; text-decoration: none; border-radius: 6px; font-size: 1.1em; font-weight: bold;">
+            Découvrir nos menus
+        </a>
     </div>
 </div>
 
-{# --- 3. LE MOTEUR AJAX (JAVASCRIPT) --- #}
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // On cible nos deux menus déroulants et la zone des plats
-        const selectRegime = document.getElementById('filtre-regime');
-        const selectAllergene = document.getElementById('filtre-allergene');
-        const platsContainer = document.getElementById('plats-container');
+{# ============================================= #}
+{# PRÉSENTATION DE L'ENTREPRISE                  #}
+{# ============================================= #}
+<div style="max-width: 1000px; margin: 0 auto; padding: 60px 20px;">
+    <h2 style="text-align: center; margin-bottom: 30px;">Notre Histoire</h2>
+    <div style="display: flex; flex-wrap: wrap; gap: 40px; align-items: center;">
+        <div style="flex: 1; min-width: 300px;">
+            <p style="font-size: 1.1em; line-height: 1.8; color: #333;">
+                Fondée il y a 25 ans à <strong>Bordeaux</strong>, <strong>Vite & Gourmand</strong> est née
+                de la passion de <strong>Julie et José</strong> pour la gastronomie et le partage.
+            </p>
+            <p style="font-size: 1.1em; line-height: 1.8; color: #333;">
+                Que ce soit pour un repas de <strong>Noël</strong>, une fête de <strong>Pâques</strong>,
+                un événement professionnel ou une célébration privée, nous composons des menus
+                adaptés à vos envies et à vos besoins alimentaires.
+            </p>
+            <p style="font-size: 1.1em; line-height: 1.8; color: #333;">
+                Notre engagement : des <strong>produits frais</strong>, une cuisine <strong>faite maison</strong>
+                et un service de livraison soigné jusque chez vous.
+            </p>
+        </div>
+    </div>
+</div>
 
-        // La fonction qui se lance à chaque fois qu'on change un filtre
-        function chargerPlatsFiltres() {
-            const regimeId = selectRegime.value;
-            const allergeneId = selectAllergene.value;
+{# ============================================= #}
+{# MISE EN AVANT DU PROFESSIONNALISME            #}
+{# ============================================= #}
+<div style="background: #f8f9fa; padding: 60px 20px;">
+    <div style="max-width: 1000px; margin: 0 auto; text-align: center;">
+        <h2 style="margin-bottom: 40px;">Pourquoi nous choisir ?</h2>
+        <div style="display: flex; flex-wrap: wrap; gap: 30px; justify-content: center;">
 
-            // On appelle silencieusement notre route API (créée à l'étape précédente)
-            fetch(`/api/plats?regime=${regimeId}&allergene=${allergeneId}`)
-                .then(response => response.json())
-                .then(data => {
-                    // 1. On vide la zone des plats
-                    platsContainer.innerHTML = '';
+            <div style="flex: 1; min-width: 200px; max-width: 280px; padding: 25px; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                <div style="font-size: 2.5em; margin-bottom: 10px;">🏆</div>
+                <h3 style="margin-bottom: 10px;">25 ans d'expérience</h3>
+                <p style="color: #666;">Un savoir-faire éprouvé au service de vos événements depuis 1999.</p>
+            </div>
 
-                    // 2. On la remplit avec les nouvelles données reçues en JSON
-                    data.forEach(plat => {
-                        const card = document.createElement('div');
-                        card.style.cssText = "border: 1px solid #ddd; padding: 15px; width: 250px; border-radius: 8px;";
-                        card.innerHTML = `<h3>${plat.titre}</h3>`;
-                        platsContainer.appendChild(card);
-                    });
-                })
-                .catch(error => console.error("Erreur lors du filtrage AJAX :", error));
-        }
+            <div style="flex: 1; min-width: 200px; max-width: 280px; padding: 25px; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                <div style="font-size: 2.5em; margin-bottom: 10px;">🥗</div>
+                <h3 style="margin-bottom: 10px;">Menus adaptés</h3>
+                <p style="color: #666;">Végétarien, vegan, classique... Nous nous adaptons à tous les régimes.</p>
+            </div>
 
-        // On écoute le moindre changement (clic) sur les menus déroulants
-        selectRegime.addEventListener('change', chargerPlatsFiltres);
-        selectAllergene.addEventListener('change', chargerPlatsFiltres);
-    });
-</script>
+            <div style="flex: 1; min-width: 200px; max-width: 280px; padding: 25px; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                <div style="font-size: 2.5em; margin-bottom: 10px;">🚚</div>
+                <h3 style="margin-bottom: 10px;">Livraison soignée</h3>
+                <p style="color: #666;">Livraison gratuite à Bordeaux et dans toute la région.</p>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+{# ============================================= #}
+{# AVIS CLIENTS VALIDÉS                          #}
+{# ============================================= #}
+<div style="max-width: 1000px; margin: 0 auto; padding: 60px 20px;">
+    <h2 style="text-align: center; margin-bottom: 40px;">Ce que nos clients disent de nous</h2>
+
+    {% if avis|length > 0 %}
+        <div style="display: flex; flex-wrap: wrap; gap: 20px; justify-content: center;">
+            {% for unAvis in avis %}
+                <div style="flex: 1; min-width: 280px; max-width: 350px; padding: 25px; background: #fff; border: 1px solid #eee; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.05);">
+
+                    {# Étoiles #}
+                    <div style="margin-bottom: 10px; font-size: 1.3em;">
+                        {% for i in 1..5 %}
+                            {% if i <= unAvis.note %}
+                                <span style="color: #f39c12;">★</span>
+                            {% else %}
+                                <span style="color: #ddd;">★</span>
+                            {% endif %}
+                        {% endfor %}
+                        <span style="font-size: 0.7em; color: #999; margin-left: 5px;">({{ unAvis.note }}/5)</span>
+                    </div>
+
+                    {# Commentaire #}
+                    {% if unAvis.description %}
+                        <p style="color: #333; font-style: italic; line-height: 1.6;">
+                            "{{ unAvis.description }}"
+                        </p>
+                    {% endif %}
+
+                    {# Auteur #}
+                    <p style="color: #999; font-size: 0.85em; margin-top: 10px; margin-bottom: 0;">
+                        — {{ unAvis.utilisateur.prenom }} {{ unAvis.utilisateur.nom|slice(0, 1) }}.
+                        {% if unAvis.commande and unAvis.commande.menu %}
+                            · Menu {{ unAvis.commande.menu.titre }}
+                        {% endif %}
+                    </p>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p style="text-align: center; color: #999;">Aucun avis pour le moment. Soyez le premier à donner votre avis !</p>
+    {% endif %}
+</div>
+
+{# ============================================= #}
+{# APPEL À L'ACTION                              #}
+{# ============================================= #}
+<div style="background: #2c3e50; color: #fff; padding: 50px 20px; text-align: center;">
+    <h2 style="margin-bottom: 15px;">Prêt à commander ?</h2>
+    <p style="margin-bottom: 25px; opacity: 0.9;">Découvrez nos menus et passez commande en quelques clics.</p>
+    <a href="{{ path('app_menus') }}"
+       style="display: inline-block; padding: 15px 35px; background: #e74c3c; color: #fff; text-decoration: none; border-radius: 6px; font-size: 1.1em; font-weight: bold;">
+        Voir nos menus
+    </a>
+    <a href="{{ path('app_register') }}"
+       style="display: inline-block; padding: 15px 35px; background: transparent; color: #fff; text-decoration: none; border-radius: 6px; font-size: 1.1em; border: 2px solid #fff; margin-left: 15px;">
+        Créer un compte
+    </a>
+</div>
+
 {% endblock %}
