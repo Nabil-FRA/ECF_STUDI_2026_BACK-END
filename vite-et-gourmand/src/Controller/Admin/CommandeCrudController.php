@@ -16,9 +16,15 @@ use EasyCorp\Bundle\EasyAdminBundle\Field\TextField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\IntegerField;
 use EasyCorp\Bundle\EasyAdminBundle\Filter\ChoiceFilter;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\Mailer\MailerInterface;
+use Symfony\Component\Mime\Email;
 
 class CommandeCrudController extends AbstractCrudController
 {
+    public function __construct(
+        private MailerInterface $mailer
+    ) {}
+
     public static function getEntityFqcn(): string
     {
         return Commande::class;
@@ -44,8 +50,7 @@ class CommandeCrudController extends AbstractCrudController
                 'En attente du retour de matériel' => 'en attente du retour de matériel',
                 'Terminée' => 'terminée',
                 'Annulée' => 'annulée',
-            ]))
-        ;
+            ]));
     }
 
     public function configureFields(string $pageName): iterable
@@ -124,6 +129,47 @@ class CommandeCrudController extends AbstractCrudController
             return;
         }
 
+        // Mail quand commande terminée
+        if ($commande->getStatut() === 'terminée') {
+            $this->envoyerMail(
+                $commande->getUtilisateur()->getEmail(),
+                'Votre commande ' . $commande->getNumeroCommande() . ' est terminée',
+                '<h2>Commande terminée !</h2>' .
+                '<p>Bonjour ' . htmlspecialchars($commande->getUtilisateur()->getPrenom()) . ',</p>' .
+                '<p>Votre commande <strong>' . $commande->getNumeroCommande() . '</strong> est maintenant terminée.</p>' .
+                '<p>Nous espérons que vous avez apprécié nos services !</p>' .
+                '<p><strong>Donnez-nous votre avis</strong> en vous connectant à votre espace client.</p>' .
+                '<p>Merci pour votre confiance !</p>' .
+                '<p><em>L\'équipe Vite & Gourmand</em></p>'
+            );
+        }
+
+        // Mail quand en attente du retour de matériel
+        if ($commande->getStatut() === 'en attente du retour de matériel') {
+            $this->envoyerMail(
+                $commande->getUtilisateur()->getEmail(),
+                'Retour de matériel - Commande ' . $commande->getNumeroCommande(),
+                '<h2>Retour de matériel</h2>' .
+                '<p>Bonjour ' . htmlspecialchars($commande->getUtilisateur()->getPrenom()) . ',</p>' .
+                '<p>Du matériel vous a été prêté pour la commande <strong>' . $commande->getNumeroCommande() . '</strong>.</p>' .
+                '<p style="color: red; font-weight: bold;">Vous disposez de 10 jours ouvrés pour restituer le matériel.</p>' .
+                '<p>Passé ce délai, des frais de <strong>600 €</strong> vous seront facturés (conformément aux CGV).</p>' .
+                '<p>Pour organiser le retour, contactez-nous par téléphone ou par mail.</p>' .
+                '<p><em>L\'équipe Vite & Gourmand</em></p>'
+            );
+        }
+
         parent::updateEntity($em, $entityInstance);
+    }
+
+    private function envoyerMail(string $to, string $subject, string $htmlBody): void
+    {
+        $email = (new Email())
+            ->from('noreply@viteetgourmand.fr')
+            ->to($to)
+            ->subject($subject)
+            ->html($htmlBody);
+
+        $this->mailer->send($email);
     }
 }

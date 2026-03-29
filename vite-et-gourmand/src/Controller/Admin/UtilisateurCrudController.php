@@ -15,6 +15,8 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\QueryBuilder;
 use Symfony\Component\Form\Extension\Core\Type\PasswordType;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Mailer\MailerInterface;
+use Symfony\Component\Mime\Email;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use EasyCorp\Bundle\EasyAdminBundle\Router\AdminUrlGenerator;
@@ -23,7 +25,8 @@ class UtilisateurCrudController extends AbstractCrudController
 {
     public function __construct(
         private UserPasswordHasherInterface $passwordHasher,
-        private RoleRepository $roleRepository
+        private RoleRepository $roleRepository,
+        private MailerInterface $mailer
     ) {}
 
     public static function getEntityFqcn(): string
@@ -57,7 +60,6 @@ class UtilisateurCrudController extends AbstractCrudController
         AdminUrlGenerator $adminUrlGenerator
     ): Response {
         if ($user->getRole()->getLibelle() === 'desactive') {
-            // Réactiver le compte
             $roleEmploye = $this->roleRepository->findOneBy(['libelle' => 'employe']);
             if ($roleEmploye) {
                 $user->setRole($roleEmploye);
@@ -65,7 +67,6 @@ class UtilisateurCrudController extends AbstractCrudController
                 $this->addFlash('success', 'Le compte de ' . $user->getEmail() . ' a été réactivé.');
             }
         } else {
-            // Désactiver le compte
             $roleDesactive = $this->roleRepository->findOneBy(['libelle' => 'desactive']);
             if ($roleDesactive) {
                 $user->setRole($roleDesactive);
@@ -120,6 +121,24 @@ class UtilisateurCrudController extends AbstractCrudController
     {
         $this->hashPassword($entityInstance);
         parent::persistEntity($em, $entityInstance);
+
+        // Mail de notification si c'est un employé
+        if ($entityInstance->getRole() && $entityInstance->getRole()->getLibelle() === 'employe') {
+            $email = (new Email())
+                ->from('noreply@viteetgourmand.fr')
+                ->to($entityInstance->getEmail())
+                ->subject('Votre compte employé Vite & Gourmand a été créé')
+                ->html(
+                    '<h2>Bienvenue dans l\'équipe !</h2>' .
+                    '<p>Bonjour,</p>' .
+                    '<p>Un compte employé a été créé pour vous chez <strong>Vite & Gourmand</strong>.</p>' .
+                    '<p><strong>Votre identifiant :</strong> ' . htmlspecialchars($entityInstance->getEmail()) . '</p>' .
+                    '<p>Pour obtenir votre mot de passe, veuillez vous rapprocher de l\'administrateur.</p>' .
+                    '<p><em>L\'équipe Vite & Gourmand</em></p>'
+                );
+
+            $this->mailer->send($email);
+        }
     }
 
     public function updateEntity(EntityManagerInterface $em, $entityInstance): void
