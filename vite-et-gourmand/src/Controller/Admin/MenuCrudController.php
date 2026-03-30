@@ -2,43 +2,37 @@
 
 namespace App\Controller\Admin;
 
-use App\Entity\Menu;
+use App\Entity\MenuImage;
 use EasyCorp\Bundle\EasyAdminBundle\Controller\AbstractCrudController;
 use EasyCorp\Bundle\EasyAdminBundle\Field\AssociationField;
-use EasyCorp\Bundle\EasyAdminBundle\Field\IntegerField;
-use EasyCorp\Bundle\EasyAdminBundle\Field\NumberField;
-use EasyCorp\Bundle\EasyAdminBundle\Field\TextareaField;
+use EasyCorp\Bundle\EasyAdminBundle\Field\ImageField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\TextField;
+use EasyCorp\Bundle\EasyAdminBundle\Field\UrlField;
+use EasyCorp\Bundle\EasyAdminBundle\Config\Crud;
 
-class MenuCrudController extends AbstractCrudController
+class MenuImageCrudController extends AbstractCrudController
 {
     public static function getEntityFqcn(): string
     {
-        return Menu::class;
+        return MenuImage::class;
+    }
+
+    public function configureCrud(Crud $crud): Crud
+    {
+        return $crud
+            ->setEntityLabelInSingular('Image de Menu')
+            ->setEntityLabelInPlural('Images des Menus');
     }
 
     public function configureFields(string $pageName): iterable
     {
         return [
-            TextField::new('titre', 'Titre du Menu'),
-            IntegerField::new('nombre_personne_minimum', 'Nb de personnes min.'),
-            NumberField::new('prix_par_personne', 'Prix par personne (€)'),
-            TextareaField::new('description', 'Description'),
-            TextareaField::new('conditions', 'Conditions'),
-            IntegerField::new('quantite_restante', 'Quantité en stock'),
+            UrlField::new('url_image', 'URL de l\'image')
+                ->setHelp('Collez l\'URL complète de l\'image (ex: https://images.unsplash.com/photo-xxx). Pour trouver des images gratuites : <a href="https://unsplash.com" target="_blank">Unsplash</a> ou <a href="https://www.pexels.com" target="_blank">Pexels</a>'),
 
-            // On configure le menu déroulant (choice_label) ET l'affichage dans le tableau (formatValue)
-            AssociationField::new('theme', 'Thème du menu')
-                ->setFormTypeOption('choice_label', 'libelle')
-                ->formatValue(fn($value) => $value ? $value->getLibelle() : ''),
-
-            AssociationField::new('regime', 'Régime alimentaire')
-                ->setFormTypeOption('choice_label', 'libelle')
-                ->formatValue(fn($value) => $value ? $value->getLibelle() : ''),
-
-            AssociationField::new('plats', 'Plats inclus dans ce menu')
-                ->setFormTypeOption('choice_label', 'titre_plat')
-                // Pour "plats" (qui contient plusieurs éléments), pas besoin de formatValue, EasyAdmin affichera le nombre de plats.
+            AssociationField::new('menu', 'Menu associé')
+                ->setFormTypeOption('choice_label', 'titre')
+                ->formatValue(fn($value) => $value ? $value->getTitre() : ''),
         ];
     }
 }
