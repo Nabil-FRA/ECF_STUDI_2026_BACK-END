@@ -102,10 +102,16 @@
             <h3>Galerie</h3>
             <div style="display: flex; flex-wrap: wrap; gap: 10px;">
                 {% for image in menu.menuImages %}
-                    <img src="{{ asset('uploads/menus/' ~ image.urlImage) }}"
-                         alt="Image du menu {{ menu.titre }}"
-                         style="max-width: 250px; border-radius: 8px;">
-                {% endfor %}
+    {% if 'http' in image.urlImage %}
+        <img src="{{ image.urlImage }}"
+             alt="Image du menu {{ menu.titre }}"
+             style="max-width: 250px; border-radius: 8px;">
+    {% else %}
+        <img src="{{ asset('uploads/menus/' ~ image.urlImage) }}"
+             alt="Image du menu {{ menu.titre }}"
+             style="max-width: 250px; border-radius: 8px;">
+    {% endif %}
+{% endfor %}
             </div>
         </div>
     {% endif %}
