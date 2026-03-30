@@ -6,6 +6,7 @@ use App\Entity\Commande;
 use App\Entity\Menu;
 use App\Form\CommandeFormType;
 use App\Repository\MenuRepository;
+use App\Service\MongoDbService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -24,6 +25,7 @@ class CommandeController extends AbstractController
         EntityManagerInterface $em,
         MenuRepository $menuRepository,
         MailerInterface $mailer,
+        MongoDbService $mongoDbService,
         ?int $menu_id = null
     ): Response {
         $user = $this->getUser();
@@ -87,6 +89,19 @@ class CommandeController extends AbstractController
 
             $em->persist($commande);
             $em->flush();
+
+            // Sync vers MongoDB
+            $mongoDbService->syncCommande([
+                'numero_commande' => $numeroCommande,
+                'menu_titre' => $menu->getTitre(),
+                'nombre_personne' => $nbPersonnes,
+                'prix_menu' => $prixMenu,
+                'prix_livraison' => $prixLivraison,
+                'prix_total' => $prixMenu + $prixLivraison,
+                'date_commande' => date('Y-m-d'),
+                'statut' => 'en cours',
+                'client_email' => $user->getEmail(),
+            ]);
 
             // Mail de confirmation de commande
             $total = $prixMenu + $prixLivraison;

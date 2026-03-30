@@ -3,6 +3,7 @@
 namespace App\Controller\Admin;
 
 use App\Entity\Commande;
+use App\Service\MongoDbService;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Crud;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Filters;
 use EasyCorp\Bundle\EasyAdminBundle\Controller\AbstractCrudController;
@@ -22,7 +23,8 @@ use Symfony\Component\Mime\Email;
 class CommandeCrudController extends AbstractCrudController
 {
     public function __construct(
-        private MailerInterface $mailer
+        private MailerInterface $mailer,
+        private MongoDbService $mongoDbService
     ) {}
 
     public static function getEntityFqcn(): string
@@ -158,6 +160,19 @@ class CommandeCrudController extends AbstractCrudController
                 '<p><em>L\'équipe Vite & Gourmand</em></p>'
             );
         }
+
+        // Sync vers MongoDB
+        $this->mongoDbService->syncCommande([
+            'numero_commande' => $commande->getNumeroCommande(),
+            'menu_titre' => $commande->getMenu() ? $commande->getMenu()->getTitre() : 'Inconnu',
+            'nombre_personne' => $commande->getNombrePersonne(),
+            'prix_menu' => $commande->getPrixMenu(),
+            'prix_livraison' => $commande->getPrixLivraison(),
+            'prix_total' => $commande->getPrixMenu() + $commande->getPrixLivraison(),
+            'date_commande' => $commande->getDateCommande() ? $commande->getDateCommande()->format('Y-m-d') : date('Y-m-d'),
+            'statut' => $commande->getStatut(),
+            'client_email' => $commande->getUtilisateur() ? $commande->getUtilisateur()->getEmail() : '',
+        ]);
 
         parent::updateEntity($em, $entityInstance);
     }

@@ -45,5 +45,8 @@ class DashboardController extends AbstractDashboardController
         yield MenuItem::section('Paramètres');
         yield MenuItem::linkTo(HoraireCrudController::class, 'Les Horaires', 'fas fa-clock');
         yield MenuItem::linkTo(UtilisateurCrudController::class, 'Les Utilisateurs', 'fas fa-users');
+
+        yield MenuItem::section('Statistiques');
+        yield MenuItem::linkToUrl('Graphiques & CA', 'fas fa-chart-bar', '/admin/stats');
     }
 }

@@ -7,6 +7,7 @@ use App\Entity\Commande;
 use App\Form\AvisFormType;
 use App\Form\CommandeFormType;
 use App\Form\ProfilFormType;
+use App\Service\MongoDbService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -115,8 +116,8 @@ class UserController extends AbstractController
     /**
      * Annuler une commande (tant qu'elle n'est pas "accepté")
      */
-    #[Route('/commande/{id}/annuler', name: 'app_user_commande_annuler')]
-    public function commandeAnnuler(Commande $commande, EntityManagerInterface $em): Response
+   #[Route('/commande/{id}/annuler', name: 'app_user_commande_annuler')]
+    public function commandeAnnuler(Commande $commande, EntityManagerInterface $em, MongoDbService $mongoDbService): Response
     {
         if ($commande->getUtilisateur() !== $this->getUser()) {
             throw $this->createAccessDeniedException();
@@ -127,7 +128,6 @@ class UserController extends AbstractController
             return $this->redirectToRoute('app_user_commande_detail', ['id' => $commande->getId()]);
         }
 
-        // Remettre le stock
         $menu = $commande->getMenu();
         if ($menu->getQuantiteRestante() !== null) {
             $menu->setQuantiteRestante($menu->getQuantiteRestante() + 1);
@@ -135,6 +135,19 @@ class UserController extends AbstractController
 
         $commande->setStatut('annulée');
         $em->flush();
+
+        // Sync vers MongoDB
+        $mongoDbService->syncCommande([
+            'numero_commande' => $commande->getNumeroCommande(),
+            'menu_titre' => $menu->getTitre(),
+            'nombre_personne' => $commande->getNombrePersonne(),
+            'prix_menu' => $commande->getPrixMenu(),
+            'prix_livraison' => $commande->getPrixLivraison(),
+            'prix_total' => $commande->getPrixMenu() + $commande->getPrixLivraison(),
+            'date_commande' => $commande->getDateCommande() ? $commande->getDateCommande()->format('Y-m-d') : date('Y-m-d'),
+            'statut' => 'annulée',
+            'client_email' => $commande->getUtilisateur()->getEmail(),
+        ]);
 
         $this->addFlash('success', 'Votre commande a été annulée.');
         return $this->redirectToRoute('app_user_espace');

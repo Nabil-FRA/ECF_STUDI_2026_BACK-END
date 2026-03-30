@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Statistiques - Vite & Gourmand Admin</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f6f9; margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { color: #2c3e50; margin-bottom: 30px; }
+        .card { background: #fff; border-radius: 8px; padding: 25px; margin-bottom: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
+        .filters { display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 20px; }
+        .filters div { display: flex; flex-direction: column; }
+        .filters label { font-weight: bold; margin-bottom: 5px; font-size: 0.9em; }
+        .filters select, .filters input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        .filters button { padding: 8px 20px; background: #007bff; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+        .back-link { display: inline-block; margin-bottom: 20px; color: #007bff; text-decoration: none; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 10px; border: 1px solid #ddd; text-align: left; }
+        th { background: #f8f9fa; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="{{ path('admin') }}" class="back-link">&larr; Retour à l'admin</a>
+        <h1>Statistiques & Chiffre d'Affaires</h1>
+
+        {# ============ GRAPHIQUES ============ #}
+        <div class="charts-grid">
+            <div class="card">
+                <h2>Commandes par menu</h2>
+                <canvas id="chartCommandes"></canvas>
+            </div>
+            <div class="card">
+                <h2>Chiffre d'affaires par menu</h2>
+                <canvas id="chartCA"></canvas>
+            </div>
+        </div>
+
+        {# ============ FILTRES CA ============ #}
+        <div class="card">
+            <h2>Détail du Chiffre d'Affaires</h2>
+
+            <div class="filters">
+                <div>
+                    <label for="filtre-menu">Menu :</label>
+                    <select id="filtre-menu">
+                        <option value="">Tous les menus</option>
+                        {% for menu in menusList %}
+                            <option value="{{ menu }}">{{ menu }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="filtre-debut">Date début :</label>
+                    <input type="date" id="filtre-debut">
+                </div>
+                <div>
+                    <label for="filtre-fin">Date fin :</label>
+                    <input type="date" id="filtre-fin">
+                </div>
+                <div>
+                    <button onclick="filtrerCA()">Filtrer</button>
+                </div>
+            </div>
+
+            <table id="table-ca">
+                <thead>
+                    <tr>
+                        <th>Menu</th>
+                        <th>Nb commandes</th>
+                        <th>CA Total</th>
+                        <th>Prix moyen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in commandesParMenu %}
+                        <tr>
+                            <td>{{ item.menu }}</td>
+                            <td>{{ item.count }}</td>
+                            <td>{{ item.chiffre_affaires|number_format(2, ',', ' ') }} €</td>
+                            <td>-</td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="4" style="text-align: center; color: #999;">Aucune donnée. Passez des commandes pour voir les statistiques.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // Données initiales depuis Twig
+        const labels = [{% for item in commandesParMenu %}'{{ item.menu }}'{% if not loop.last %},{% endif %}{% endfor %}];
+        const dataCounts = [{% for item in commandesParMenu %}{{ item.count }}{% if not loop.last %},{% endif %}{% endfor %}];
+        const dataCA = [{% for item in commandesParMenu %}{{ item.chiffre_affaires }}{% if not loop.last %},{% endif %}{% endfor %}];
+
+        const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#34495e'];
+
+        // Graphique commandes par menu (Bar)
+        new Chart(document.getElementById('chartCommandes'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Nombre de commandes',
+                    data: dataCounts,
+                    backgroundColor: colors.slice(0, labels.length),
+                    borderRadius: 6,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+            }
+        });
+
+        // Graphique CA par menu (Doughnut)
+        new Chart(document.getElementById('chartCA'), {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: dataCA,
+                    backgroundColor: colors.slice(0, labels.length),
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'bottom' },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.label + ' : ' + context.parsed.toFixed(2) + ' €';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Filtre AJAX pour le CA
+        function filtrerCA() {
+            const menu = document.getElementById('filtre-menu').value;
+            const debut = document.getElementById('filtre-debut').value;
+            const fin = document.getElementById('filtre-fin').value;
+
+            const params = new URLSearchParams();
+            if (menu) params.append('menu', menu);
+            if (debut) params.append('date_debut', debut);
+            if (fin) params.append('date_fin', fin);
+
+            fetch('/admin/stats/api/chiffre-affaires?' + params.toString())
+                .then(r => r.json())
+                .then(data => {
+                    const tbody = document.querySelector('#table-ca tbody');
+                    tbody.innerHTML = '';
+
+                    if (data.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #999;">Aucun résultat pour ces critères.</td></tr>';
+                        return;
+                    }
+
+                    data.forEach(item => {
+                        tbody.innerHTML += '<tr>' +
+                            '<td>' + item.menu + '</td>' +
+                            '<td>' + item.total_commandes + '</td>' +
+                            '<td>' + item.chiffre_affaires.toFixed(2).replace('.', ',') + ' €</td>' +
+                            '<td>' + item.prix_moyen.toFixed(2).replace('.', ',') + ' €</td>' +
+                            '</tr>';
+                    });
+                });
+        }
+    </script>
+</body>
+</html>
