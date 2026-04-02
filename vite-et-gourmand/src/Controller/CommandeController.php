@@ -3,7 +3,6 @@
 namespace App\Controller;
 
 use App\Entity\Commande;
-use App\Entity\Menu;
 use App\Form\CommandeFormType;
 use App\Repository\MenuRepository;
 use App\Service\MongoDbService;
@@ -63,10 +62,12 @@ class CommandeController extends AbstractController
             }
 
             $lieuPrestation = strtolower($commande->getLieuPrestation());
-            if (str_contains($lieuPrestation, 'bordeaux')) {
+            $distanceKm = (int) $request->request->get('distance_km', 0);
+
+            if (str_contains($lieuPrestation, 'bordeaux') || $distanceKm === 0) {
                 $prixLivraison = 0.0;
             } else {
-                $prixLivraison = 5.0;
+                $prixLivraison = 5.0 + (0.59 * $distanceKm);
             }
 
             $numeroCommande = 'CMD-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -5));
@@ -102,6 +103,9 @@ class CommandeController extends AbstractController
                 'statut' => 'en cours',
                 'client_email' => $user->getEmail(),
             ]);
+
+            // Historique de suivi
+            $mongoDbService->ajouterSuivi($numeroCommande, 'en cours');
 
             // Mail de confirmation de commande
             $total = $prixMenu + $prixLivraison;

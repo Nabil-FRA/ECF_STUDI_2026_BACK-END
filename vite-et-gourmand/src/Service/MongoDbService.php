@@ -28,12 +28,48 @@ class MongoDbService
     {
         $collection = $this->getCollection('commandes_stats');
 
-        // Mettre à jour si existe, sinon insérer
         $collection->updateOne(
             ['numero_commande' => $data['numero_commande']],
             ['$set' => $data],
             ['upsert' => true]
         );
+    }
+
+    /**
+     * Ajoute un événement dans l'historique de suivi d'une commande
+     */
+    public function ajouterSuivi(string $numeroCommande, string $statut): void
+    {
+        $collection = $this->getCollection('commandes_suivi');
+
+        $collection->insertOne([
+            'numero_commande' => $numeroCommande,
+            'statut' => $statut,
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+    }
+
+    /**
+     * Récupère l'historique de suivi d'une commande
+     */
+    public function getSuivi(string $numeroCommande): array
+    {
+        $collection = $this->getCollection('commandes_suivi');
+
+        $results = $collection->find(
+            ['numero_commande' => $numeroCommande],
+            ['sort' => ['date' => 1]]
+        )->toArray();
+
+        $data = [];
+        foreach ($results as $result) {
+            $data[] = [
+                'statut' => $result['statut'],
+                'date' => $result['date'],
+            ];
+        }
+
+        return $data;
     }
 
     /**

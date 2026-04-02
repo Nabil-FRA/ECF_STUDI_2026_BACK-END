@@ -19,9 +19,6 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[IsGranted('ROLE_USER')]
 class UserController extends AbstractController
 {
-    /**
-     * Page principale : liste des commandes de l'utilisateur
-     */
     #[Route('/', name: 'app_user_espace')]
     public function index(): Response
     {
@@ -32,9 +29,6 @@ class UserController extends AbstractController
         ]);
     }
 
-    /**
-     * Modifier son profil
-     */
     #[Route('/profil', name: 'app_user_profil')]
     public function profil(Request $request, EntityManagerInterface $em): Response
     {
@@ -54,23 +48,23 @@ class UserController extends AbstractController
     }
 
     /**
-     * Voir le détail d'une commande
+     * Voir le détail d'une commande + historique de suivi MongoDB
      */
     #[Route('/commande/{id}', name: 'app_user_commande_detail')]
-    public function commandeDetail(Commande $commande): Response
+    public function commandeDetail(Commande $commande, MongoDbService $mongoDbService): Response
     {
         if ($commande->getUtilisateur() !== $this->getUser()) {
             throw $this->createAccessDeniedException();
         }
 
+        $suivi = $mongoDbService->getSuivi($commande->getNumeroCommande());
+
         return $this->render('user/commande_detail.html.twig', [
             'commande' => $commande,
+            'suivi' => $suivi,
         ]);
     }
 
-    /**
-     * Modifier une commande (tant qu'elle n'est pas "accepté")
-     */
     #[Route('/commande/{id}/modifier', name: 'app_user_commande_modifier')]
     public function commandeModifier(Commande $commande, Request $request, EntityManagerInterface $em): Response
     {
@@ -90,7 +84,6 @@ class UserController extends AbstractController
             $menu = $commande->getMenu();
             $nbPersonnes = $commande->getNombrePersonne();
 
-            // Recalculer le prix
             $prixMenu = $menu->getPrixParPersonne() * $nbPersonnes;
             if ($nbPersonnes >= $menu->getNombrePersonneMinimum() + 5) {
                 $prixMenu = $prixMenu * 0.9;
@@ -113,10 +106,7 @@ class UserController extends AbstractController
         ]);
     }
 
-    /**
-     * Annuler une commande (tant qu'elle n'est pas "accepté")
-     */
-   #[Route('/commande/{id}/annuler', name: 'app_user_commande_annuler')]
+    #[Route('/commande/{id}/annuler', name: 'app_user_commande_annuler')]
     public function commandeAnnuler(Commande $commande, EntityManagerInterface $em, MongoDbService $mongoDbService): Response
     {
         if ($commande->getUtilisateur() !== $this->getUser()) {
@@ -149,13 +139,13 @@ class UserController extends AbstractController
             'client_email' => $commande->getUtilisateur()->getEmail(),
         ]);
 
+        // Historique de suivi
+        $mongoDbService->ajouterSuivi($commande->getNumeroCommande(), 'annulée');
+
         $this->addFlash('success', 'Votre commande a été annulée.');
         return $this->redirectToRoute('app_user_espace');
     }
 
-    /**
-     * Donner un avis sur une commande terminée
-     */
     #[Route('/commande/{id}/avis', name: 'app_user_avis')]
     public function donnerAvis(Commande $commande, Request $request, EntityManagerInterface $em): Response
     {
@@ -168,7 +158,6 @@ class UserController extends AbstractController
             return $this->redirectToRoute('app_user_commande_detail', ['id' => $commande->getId()]);
         }
 
-        // Vérifier si un avis existe déjà
         foreach ($commande->getAvis() as $existingAvis) {
             if ($existingAvis->getUtilisateur() === $this->getUser()) {
                 $this->addFlash('error', 'Vous avez déjà donné un avis sur cette commande.');
