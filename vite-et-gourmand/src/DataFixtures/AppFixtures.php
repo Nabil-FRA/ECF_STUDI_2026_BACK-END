@@ -307,7 +307,7 @@ class AppFixtures extends Fixture
             ->setPhoto('https://images.unsplash.com/photo-1572453800999-e8d2d1589b7c?w=400');
         $manager->persist($ratatouille);
 
-        $canardOrange = (new Plat())->setTitrePlat('Magret de canard à l\'orange et purée de patates douces')
+        $canardOrange = (new Plat())->setTitrePlat('Magret de canard à l\'orange')
             ->setPhoto('https://images.unsplash.com/photo-1432139509613-5c4255a78e03?w=400');
         $canardOrange->addAllergene($allergenes['Sulfites']);
         $manager->persist($canardOrange);
@@ -359,7 +359,7 @@ class AppFixtures extends Fixture
         $tarteAuxPommes->addAllergene($allergenes['Gluten'])->addAllergene($allergenes['Lait'])->addAllergene($allergenes['Œufs']);
         $manager->persist($tarteAuxPommes);
 
-        $sorbetFruits = (new Plat())->setTitrePlat('Trio de sorbets artisanaux (citron, framboise, mangue)')
+        $sorbetFruits = (new Plat())->setTitrePlat('Trio de sorbets artisanaux')
             ->setPhoto('https://images.unsplash.com/photo-1497034825429-c343d7c6a68f?w=400');
         $manager->persist($sorbetFruits);
 
