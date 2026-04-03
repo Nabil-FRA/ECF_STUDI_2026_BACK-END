@@ -13,18 +13,22 @@ use App\Entity\Regime;
 use App\Entity\Role;
 use App\Entity\Theme;
 use App\Entity\Utilisateur;
+use App\Service\MongoDbService;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Persistence\ObjectManager;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
+
 class AppFixtures extends Fixture
 {
     private UserPasswordHasherInterface $hasher;
+    private MongoDbService $mongoDbService;
 
-    public function __construct(UserPasswordHasherInterface $hasher)
-    {
-        $this->hasher = $hasher;
-    }
+public function __construct(UserPasswordHasherInterface $hasher, MongoDbService $mongoDbService)
+{
+    $this->hasher = $hasher;
+    $this->mongoDbService = $mongoDbService;
+}
 
     public function load(ObjectManager $manager): void
     {
@@ -118,6 +122,7 @@ class AppFixtures extends Fixture
             ->setVille('Bordeaux')->setPays('France')
             ->setAdressePostale('10 rue Sainte-Catherine, 33000 Bordeaux')
             ->setRole($roleEmploye);
+        $employe->setRoles(['ROLE_EMPLOYE']);
         $employe->setPassword($this->hasher->hashPassword($employe, 'Password1!'));
         $manager->persist($employe);
 
@@ -580,10 +585,25 @@ class AppFixtures extends Fixture
         $manager->persist((new Avis())->setNote(3)
             ->setDescription('Menu correct mais les portions étaient un peu petites pour le prix. Le goût était bon cependant.')
             ->setStatut('en attente')->setUtilisateur($client5)->setCommande($cmd6));
+            // ============================================================
+        // SYNC MONGODB
+        // ============================================================
+    $manager->flush();
 
-        // ============================================================
-        // FLUSH
-        // ============================================================
-        $manager->flush();
+    $commandesMongo = [
+        ['numero_commande' => 'CMD-2026-001', 'menu_titre' => 'Menu Réveillon de Noël', 'prix_total' => 270.00, 'date_commande' => '2025-12-10', 'statut' => 'terminée'],
+        ['numero_commande' => 'CMD-2026-002', 'menu_titre' => 'Menu Classique Tradition', 'prix_total' => 84.00, 'date_commande' => '2026-01-15', 'statut' => 'terminée'],
+        ['numero_commande' => 'CMD-2026-003', 'menu_titre' => 'Menu Végétarien Découverte', 'prix_total' => 128.00, 'date_commande' => '2026-02-01', 'statut' => 'terminée'],
+        ['numero_commande' => 'CMD-2026-004', 'menu_titre' => 'Menu Évènement Prestige', 'prix_total' => 550.00, 'date_commande' => '2026-03-20', 'statut' => 'accepté'],
+        ['numero_commande' => 'CMD-2026-005', 'menu_titre' => 'Menu Pâques Gourmand', 'prix_total' => 342.00, 'date_commande' => '2026-03-25', 'statut' => 'en préparation'],
+        ['numero_commande' => 'CMD-2026-006', 'menu_titre' => 'Menu Végan Bien-être', 'prix_total' => 120.00, 'date_commande' => '2026-03-28', 'statut' => 'en cours de livraison'],
+        ['numero_commande' => 'CMD-2026-007', 'menu_titre' => 'Brunch du Dimanche', 'prix_total' => 150.00, 'date_commande' => '2026-04-01', 'statut' => 'accepté'],
+        ['numero_commande' => 'CMD-2026-008', 'menu_titre' => 'Menu Sans Gluten Saveurs', 'prix_total' => 70.00, 'date_commande' => '2026-02-14', 'statut' => 'terminée'],
+    ];
+
+    foreach ($commandesMongo as $cmdData) {
+        $this->mongoDbService->syncCommande($cmdData);
+    }
+
     }
 }
