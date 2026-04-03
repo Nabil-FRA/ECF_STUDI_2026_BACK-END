@@ -107,6 +107,7 @@ class AppFixtures extends Fixture
             ->setVille('Bordeaux')->setPays('France')
             ->setAdressePostale('15 rue de la Restauration, 33000 Bordeaux')
             ->setRole($roleAdmin);
+        $admin->setRoles(['ROLE_ADMIN']);
         $admin->setPassword($this->hasher->hashPassword($admin, 'Password1!'));
         $manager->persist($admin);
 
