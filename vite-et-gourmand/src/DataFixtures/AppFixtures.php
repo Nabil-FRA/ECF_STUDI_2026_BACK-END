@@ -133,6 +133,7 @@ public function __construct(UserPasswordHasherInterface $hasher, MongoDbService 
             ->setVille('Bordeaux')->setPays('France')
             ->setAdressePostale('22 cours Victor Hugo, 33000 Bordeaux')
             ->setRole($roleEmploye);
+        $employe->setRoles(['ROLE_EMPLOYE']);
         $employe2->setPassword($this->hasher->hashPassword($employe2, 'Password1!'));
         $manager->persist($employe2);
 
