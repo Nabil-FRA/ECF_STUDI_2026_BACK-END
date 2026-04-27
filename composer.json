@@ -1,0 +1,6 @@
+{
+    "require": {
+        "nelmio/cors-bundle": "^2.6",
+        "symfony/rate-limiter": "^7.4"
+    }
+}

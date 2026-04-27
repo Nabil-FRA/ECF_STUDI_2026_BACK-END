@@ -1,0 +1,52 @@
+# ============================================
+# .dockerignore - Vite & Gourmand
+# ============================================
+
+# Git
+.git
+.gitignore
+
+# Docker
+docker-compose*.yml
+Dockerfile
+.dockerignore
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Symfony
+/var/cache/*
+/var/log/*
+/var/sessions/*
+!/var/.gitkeep
+
+# Vendor (sera installé dans le conteneur)
+/vendor/
+
+# Node (si frontend séparé)
+/node_modules/
+
+# Environnement
+.env.local
+.env.*.local
+.env.docker
+
+# Tests
+/tests/
+phpunit.xml
+
+# Documentation
+/docs/
+*.md
+!README.md
+
+# Fichiers de config IDE
+*.sublime-*
+*.code-workspace

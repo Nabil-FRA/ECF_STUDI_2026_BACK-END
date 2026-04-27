@@ -1,0 +1,41 @@
+<footer style="background: #2c3e50; color: #fff; padding: 40px 20px; margin-top: 40px;">
+    <div style="max-width: 1200px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 40px; justify-content: space-between;">
+
+        {# Colonne 1 : Infos entreprise #}
+        <div style="flex: 1; min-width: 200px;">
+            <h3 style="margin-top: 0; color: #e74c3c;">Vite & Gourmand</h3>
+            <p>Traiteur d'exception à Bordeaux depuis 25 ans.</p>
+            <p>Email : contact@viteetgourmand.fr</p>
+        </div>
+
+        {# Colonne 2 : Horaires #}
+        <div style="flex: 1; min-width: 200px;">
+            <h3 style="margin-top: 0;">Horaires</h3>
+            {% for horaire in horaires %}
+                <p style="margin: 3px 0; font-size: 0.9em;">
+                    <strong>{{ horaire.jour }} :</strong>
+                    {% if horaire.heureOuverture and horaire.heureFermeture %}
+                        {{ horaire.heureOuverture }} - {{ horaire.heureFermeture }}
+                    {% else %}
+                        Fermé
+                    {% endif %}
+                </p>
+            {% endfor %}
+        </div>
+
+        {# Colonne 3 : Liens utiles #}
+        <div style="flex: 1; min-width: 200px;">
+            <h3 style="margin-top: 0;">Liens utiles</h3>
+            <p><a href="{{ path('app_home') }}" style="color: #bdc3c7; text-decoration: none;">Accueil</a></p>
+            <p><a href="{{ path('app_menus') }}" style="color: #bdc3c7; text-decoration: none;">Nos Menus</a></p>
+            <p><a href="{{ path('app_contact') }}" style="color: #bdc3c7; text-decoration: none;">Contact</a></p>
+            <p><a href="{{ path('app_mentions_legales') }}" style="color: #bdc3c7; text-decoration: none;">Mentions légales</a></p>
+            <p><a href="{{ path('app_cgv') }}" style="color: #bdc3c7; text-decoration: none;">Conditions Générales de Vente</a></p>
+        </div>
+
+    </div>
+
+    <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #555; font-size: 0.85em; color: #999;">
+        © {{ "now"|date("Y") }} Vite & Gourmand — Tous droits réservés
+    </div>
+</footer>

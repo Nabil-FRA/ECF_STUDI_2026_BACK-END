@@ -1,0 +1,32 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Modifier commande - Vite & Gourmand{% endblock %}
+
+{% block body %}
+<div style="max-width: 800px; margin: 0 auto; padding: 20px;">
+    <a href="{{ path('app_user_commande_detail', {id: commande.id}) }}" style="color: #007bff; text-decoration: none;">&larr; Retour au détail</a>
+
+    <h1 style="margin-top: 15px;">Modifier la commande {{ commande.numeroCommande }}</h1>
+
+    <p style="color: #856404; background: #fff3cd; padding: 10px; border-radius: 6px;">
+        Vous pouvez modifier tous les détails sauf le choix du menu.
+    </p>
+
+    {{ form_start(form) }}
+        <div style="margin-bottom: 15px;">
+    <label><strong>Menu :</strong></label>
+    <p style="padding: 8px; background: #e9ecef; border-radius: 4px;">{{ commande.menu.titre }}</p>
+</div>
+{{ form_row(form.menu, {attr: {style: 'display:none'}}) }}
+        {{ form_row(form.nombre_personne) }}
+        {{ form_row(form.lieu_prestation) }}
+        {{ form_row(form.date_prestation) }}
+        {{ form_row(form.heure_livraison) }}
+        {{ form_row(form.pret_materiel) }}
+
+        <button type="submit" style="padding: 10px 25px; background: #ffc107; color: #000; border: none; border-radius: 6px; cursor: pointer; margin-top: 15px;">
+            Enregistrer les modifications
+        </button>
+    {{ form_end(form) }}
+</div>
+{% endblock %}

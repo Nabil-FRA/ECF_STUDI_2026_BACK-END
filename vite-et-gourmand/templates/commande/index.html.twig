@@ -1,0 +1,79 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Commander - Vite & Gourmand{% endblock %}
+
+{% block body %}
+<div style="max-width: 800px; margin: 0 auto; padding: 20px;">
+    <h1>Passer une commande</h1>
+
+    {# Messages flash #}
+    {% for message in app.flashes('error') %}
+        <div style="background: #f8d7da; color: #721c24; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+            {{ message }}
+        </div>
+    {% endfor %}
+
+    {# Infos client pré-remplies (lecture seule) #}
+    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+        <h3 style="margin-top: 0;">Vos informations</h3>
+        <p><strong>Nom :</strong> {{ user.nom }} {{ user.prenom }}</p>
+        <p><strong>Email :</strong> {{ user.email }}</p>
+        {% if user.telephone %}
+            <p><strong>Téléphone :</strong> {{ user.telephone }}</p>
+        {% endif %}
+    </div>
+
+    {# Info sur le menu pré-sélectionné #}
+    {% if menu %}
+        <div style="background: #d4edda; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h3 style="margin-top: 0;">Menu sélectionné : {{ menu.titre }}</h3>
+            <p><strong>Prix :</strong> {{ menu.prixParPersonne }} € / personne</p>
+            <p><strong>Minimum :</strong> {{ menu.nombrePersonneMinimum }} personnes</p>
+            {% if menu.conditions %}
+                <div style="background: #fff3cd; border: 2px solid #ffc107; padding: 15px; border-radius: 8px; margin-top: 10px;">
+                    <strong style="color: #856404;">⚠ Conditions :</strong>
+                    <p style="color: #856404; margin-bottom: 0;">{{ menu.conditions }}</p>
+                </div>
+            {% endif %}
+        </div>
+    {% endif %}
+
+    {# Formulaire #}
+    {{ form_start(form) }}
+        <h3>Menu</h3>
+        {{ form_row(form.menu) }}
+        {{ form_row(form.nombre_personne, {
+            help: 'Minimum requis selon le menu. -10% à partir de 5 personnes supplémentaires.'
+        }) }}
+
+        <h3>Livraison</h3>
+        {{ form_row(form.lieu_prestation, {
+            help: 'Gratuit à Bordeaux. Hors Bordeaux : 5€ + 0,59€/km.'
+        }) }}
+
+        <div style="margin-bottom: 15px;">
+            <label for="distance_km" style="display: block; font-weight: bold; margin-bottom: 5px;">Distance depuis Bordeaux (km)</label>
+            <input type="number" id="distance_km" name="distance_km" min="0" step="1" value="0" placeholder="0"
+                   style="padding: 10px; border: 1px solid #ccc; border-radius: 4px; width: 150px;">
+            <p style="font-size: 0.85em; color: #666;">Indiquez 0 si la livraison est à Bordeaux.</p>
+        </div>
+
+        {{ form_row(form.date_prestation) }}
+        {{ form_row(form.heure_livraison) }}
+
+        <h3>Options</h3>
+        {{ form_row(form.pret_materiel) }}
+
+        <div style="margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+            <p style="font-size: 0.9em; color: #666;">
+                En validant votre commande, vous acceptez les conditions du menu et les
+                <a href="{{ path('app_cgv') }}">conditions générales de vente</a>.
+            </p>
+            <button type="submit"
+                    style="padding: 12px 30px; background: #28a745; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 1.1em; font-weight: bold;">
+                Valider ma commande
+            </button>
+        </div>
+    {{ form_end(form) }}
+</div>
+{% endblock %}

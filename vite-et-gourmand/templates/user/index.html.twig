@@ -1,0 +1,72 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Mon Espace - Vite & Gourmand{% endblock %}
+
+{% block body %}
+<div style="max-width: 1000px; margin: 0 auto; padding: 20px;">
+    <h1>Mon Espace</h1>
+
+    <p>
+        <a href="{{ path('app_user_profil') }}" style="color: #007bff;">Modifier mon profil</a>
+    </p>
+
+    {% for message in app.flashes('success') %}
+        <div style="background: #d4edda; color: #155724; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+            {{ message }}
+        </div>
+    {% endfor %}
+    {% for message in app.flashes('error') %}
+        <div style="background: #f8d7da; color: #721c24; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+            {{ message }}
+        </div>
+    {% endfor %}
+
+    <h2>Mes Commandes</h2>
+
+    {% if commandes|length > 0 %}
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="background: #f8f9fa;">
+                    <th style="padding: 10px; border: 1px solid #ddd;">N° Commande</th>
+                    <th style="padding: 10px; border: 1px solid #ddd;">Menu</th>
+                    <th style="padding: 10px; border: 1px solid #ddd;">Date prestation</th>
+                    <th style="padding: 10px; border: 1px solid #ddd;">Personnes</th>
+                    <th style="padding: 10px; border: 1px solid #ddd;">Total</th>
+                    <th style="padding: 10px; border: 1px solid #ddd;">Statut</th>
+                    <th style="padding: 10px; border: 1px solid #ddd;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for commande in commandes %}
+                    <tr>
+                        <td style="padding: 10px; border: 1px solid #ddd;">{{ commande.numeroCommande }}</td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">{{ commande.menu.titre }}</td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">{{ commande.datePrestation|date('d/m/Y') }}</td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">{{ commande.nombrePersonne }}</td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">{{ (commande.prixMenu + commande.prixLivraison)|number_format(2, ',', ' ') }} €</td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">
+                            <span style="padding: 3px 8px; border-radius: 4px; font-size: 0.85em;
+                                background: {% if commande.statut == 'en cours' %}#fff3cd{% elseif commande.statut == 'accepté' %}#cce5ff{% elseif commande.statut == 'terminée' %}#d4edda{% elseif commande.statut == 'annulée' %}#f8d7da{% else %}#e9ecef{% endif %};">
+                                {{ commande.statut }}
+                            </span>
+                        </td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">
+                            <a href="{{ path('app_user_commande_detail', {id: commande.id}) }}" style="color: #007bff;">Détail</a>
+                            {% if commande.statut == 'en cours' %}
+                                | <a href="{{ path('app_user_commande_modifier', {id: commande.id}) }}" style="color: #ffc107;">Modifier</a>
+                                | <a href="{{ path('app_user_commande_annuler', {id: commande.id}) }}" style="color: #dc3545;" onclick="return confirm('Êtes-vous sûr de vouloir annuler cette commande ?');">Annuler</a>
+                            {% endif %}
+                            {% if commande.statut == 'terminée' %}
+                                | <a href="{{ path('app_user_avis', {id: commande.id}) }}" style="color: #28a745;">Donner un avis</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>Vous n'avez pas encore de commande.</p>
+        <a href="{{ path('app_menus') }}" style="color: #007bff;">Voir nos menus</a>
+    {% endif %}
+</div>
+{% endblock %}
