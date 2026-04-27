@@ -1,0 +1,25 @@
+# config/services_api.yaml
+# ==========================================
+# Configuration des services API
+# ==========================================
+# À importer dans config/services.yaml via :
+# imports:
+#     - { resource: 'services_api.yaml' }
+
+services:
+    # Authenticator API avec injection du secret
+    App\Security\ApiTokenAuthenticator:
+        arguments:
+            $appSecret: '%kernel.secret%'
+
+    # Event listeners
+    App\EventListener\SecurityHeadersListener:
+        tags:
+            - { name: kernel.event_listener, event: kernel.response }
+
+    App\EventListener\ApiRateLimiterListener:
+        arguments:
+            $apiLoginLimiter: '@limiter.api_login_limiter'
+            $apiRegisterLimiter: '@limiter.api_register_limiter'
+        tags:
+            - { name: kernel.event_listener, event: kernel.request, priority: 10 }

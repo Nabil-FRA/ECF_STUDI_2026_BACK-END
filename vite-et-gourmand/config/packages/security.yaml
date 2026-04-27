@@ -1,3 +1,10 @@
+# config/packages/security.yaml
+# ==========================================
+# CONFIGURATION SÉCURITÉ COMPLÈTE
+# ==========================================
+# - Firewall séparé pour l'API (stateless, token)
+# - Firewall existant pour les pages Twig (session)
+# - Contrôle d'accès granulaire par rôle
 security:
     password_hashers:
         Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface: 'auto'
@@ -12,6 +19,25 @@ security:
         dev:
             pattern: ^/(_(profiler|wdt)|css|images|js)/
             security: false
+
+        # ================================
+        # FIREWALL API (NOUVEAU)
+        # ================================
+        # - Stateless : pas de session côté serveur
+        # - Authentification par token Bearer
+        # - Les routes /api/auth et les GET publics sont accessibles sans token
+        api:
+            pattern: ^/api/
+            stateless: true
+            provider: app_user_provider
+            custom_authenticators:
+                - App\Security\ApiTokenAuthenticator
+            # Permettre l'accès anonyme aux routes publiques
+            # Le contrôle fin est fait dans access_control ci-dessous
+
+        # ================================
+        # FIREWALL TWIG (EXISTANT)
+        # ================================
         main:
             lazy: true
             provider: app_user_provider
@@ -23,7 +49,27 @@ security:
             logout:
                 path: app_logout
 
+    # ================================
+    # CONTRÔLE D'ACCÈS
+    # ================================
     access_control:
+        # Routes API publiques (pas de token requis)
+        - { path: ^/api/auth, roles: PUBLIC_ACCESS }
+        - { path: ^/api/menus, roles: PUBLIC_ACCESS, methods: [GET] }
+        - { path: ^/api/themes, roles: PUBLIC_ACCESS }
+        - { path: ^/api/regimes, roles: PUBLIC_ACCESS }
+        - { path: ^/api/allergenes, roles: PUBLIC_ACCESS }
+        - { path: ^/api/avis, roles: PUBLIC_ACCESS, methods: [GET] }
+        - { path: ^/api/horaires, roles: PUBLIC_ACCESS }
+        - { path: ^/api/contact, roles: PUBLIC_ACCESS, methods: [POST] }
+        - { path: ^/api/plats, roles: PUBLIC_ACCESS }
+
+        # Routes API protégées par rôle
+        - { path: ^/api/admin, roles: ROLE_ADMIN }
+        - { path: ^/api/employe, roles: ROLE_EMPLOYE }
+        - { path: ^/api/user, roles: ROLE_USER }
+
+        # Routes Twig existantes
         - { path: ^/admin, roles: [ROLE_ADMIN, ROLE_EMPLOYE] }
 
 when@test:

@@ -1,0 +1,15 @@
+# config/packages/rate_limiter.yaml
+# ==========================================
+# SÉCURITÉ : Rate Limiting
+# ==========================================
+# Protège les endpoints sensibles contre le brute force
+framework:
+    rate_limiter:
+        api_login_limiter:
+            policy: 'sliding_window'
+            limit: 5
+            interval: '1 minute'
+        api_register_limiter:
+            policy: 'sliding_window'
+            limit: 3
+            interval: '1 hour'
