@@ -251,6 +251,102 @@ class UserApiController extends AbstractController
     }
 
     /**
+     * PUT /api/user/commandes/{id} - Modifier une commande (seulement si statut "en cours")
+     * Corps : { date_prestation, lieu_prestation, heure_livraison, pret_materiel, distance_km, nombre_personne }
+     * Le menu NE PEUT PAS être modifié.
+     */
+    #[Route('/commandes/{id}', name: 'api_user_commande_update', methods: ['PUT'])]
+    public function updateCommande(
+        Commande $commande,
+        Request $request,
+        EntityManagerInterface $em,
+        MongoDbService $mongoDbService
+    ): JsonResponse {
+        if ($commande->getUtilisateur() !== $this->getUser()) {
+            return $this->json(['success' => false, 'message' => 'Accès interdit.'], 403);
+        }
+
+        if ($commande->getStatut() !== 'en cours') {
+            return $this->json([
+                'success' => false,
+                'message' => 'Modification impossible : la commande a déjà été acceptée.'
+            ], 400);
+        }
+
+        $data = json_decode($request->getContent(), true);
+        $menu = $commande->getMenu();
+
+        // Nombre de personnes
+        if (isset($data['nombre_personne'])) {
+            $nbPersonnes = (int) $data['nombre_personne'];
+            if ($nbPersonnes < $menu->getNombrePersonneMinimum()) {
+                return $this->json([
+                    'success' => false,
+                    'message' => 'Minimum ' . $menu->getNombrePersonneMinimum() . ' personnes pour ce menu.'
+                ], 400);
+            }
+            $commande->setNombrePersonne($nbPersonnes);
+
+            // Recalcul du prix
+            $prixMenu = $menu->getPrixParPersonne() * $nbPersonnes;
+            if ($nbPersonnes >= $menu->getNombrePersonneMinimum() + 5) {
+                $prixMenu *= 0.9;
+            }
+            $commande->setPrixMenu($prixMenu);
+        }
+
+        // Date de prestation
+        if (isset($data['date_prestation'])) {
+            $datePrest = \DateTime::createFromFormat('Y-m-d', $this->sanitize($data['date_prestation']));
+            if (!$datePrest || $datePrest < new \DateTime('today')) {
+                return $this->json(['success' => false, 'message' => 'Date de prestation invalide.'], 400);
+            }
+            $commande->setDatePrestation($datePrest);
+        }
+
+        // Lieu de prestation + recalcul livraison
+        if (isset($data['lieu_prestation'])) {
+            $lieu = $this->sanitize($data['lieu_prestation']);
+            $commande->setLieuPrestation($lieu);
+            $distanceKm = (int) ($data['distance_km'] ?? 0);
+            $lieuLower = strtolower($lieu);
+            $prixLivraison = (str_contains($lieuLower, 'bordeaux') || $distanceKm === 0)
+                ? 0.0
+                : 5.0 + (0.59 * $distanceKm);
+            $commande->setPrixLivraison($prixLivraison);
+        }
+
+        if (isset($data['heure_livraison'])) {
+            $commande->setHeureLivraison($this->sanitize($data['heure_livraison']));
+        }
+
+        if (isset($data['pret_materiel'])) {
+            $commande->setPretMateriel((bool) $data['pret_materiel']);
+        }
+
+        $em->flush();
+
+        // Sync MongoDB
+        $mongoDbService->syncCommande([
+            'numero_commande' => $commande->getNumeroCommande(),
+            'menu_titre'      => $menu->getTitre(),
+            'nombre_personne' => $commande->getNombrePersonne(),
+            'prix_menu'       => $commande->getPrixMenu(),
+            'prix_livraison'  => $commande->getPrixLivraison(),
+            'prix_total'      => $commande->getPrixMenu() + $commande->getPrixLivraison(),
+            'date_commande'   => $commande->getDateCommande()?->format('Y-m-d') ?? date('Y-m-d'),
+            'statut'          => $commande->getStatut(),
+            'client_email'    => $commande->getUtilisateur()->getEmail(),
+        ]);
+
+        return $this->json([
+            'success'  => true,
+            'message'  => 'Commande modifiée.',
+            'commande' => $this->serializeCommande($commande),
+        ]);
+    }
+
+    /**
      * PUT /api/user/commandes/{id}/annuler - Annuler une commande
      */
     #[Route('/commandes/{id}/annuler', name: 'api_user_commande_annuler', methods: ['PUT'])]

@@ -10,14 +10,29 @@ class MongoDbService
     private Client $client;
     private string $dbName;
 
+    private bool $available = false;
+
     public function __construct()
     {
-        $this->client = new Client($_ENV['MONGODB_URL']);
-        $this->dbName = $_ENV['MONGODB_DB'];
+        if (!extension_loaded('mongodb')) {
+            $this->available = false;
+            return;
+        }
+        $this->client = new Client($_ENV['MONGODB_URL'] ?? 'mongodb://localhost:27017');
+        $this->dbName = $_ENV['MONGODB_DB'] ?? 'vite_et_gourmand';
+        $this->available = true;
     }
 
-    public function getCollection(string $name): Collection
+    public function isAvailable(): bool
     {
+        return $this->available;
+    }
+
+    public function getCollection(string $name): ?Collection
+    {
+        if (!$this->available) {
+            return null;
+        }
         return $this->client->{$this->dbName}->{$name};
     }
 
@@ -27,6 +42,7 @@ class MongoDbService
     public function syncCommande(array $data): void
     {
         $collection = $this->getCollection('commandes_stats');
+        if (!$collection) return;
 
         $collection->updateOne(
             ['numero_commande' => $data['numero_commande']],
@@ -41,6 +57,7 @@ class MongoDbService
     public function ajouterSuivi(string $numeroCommande, string $statut): void
     {
         $collection = $this->getCollection('commandes_suivi');
+        if (!$collection) return;
 
         $collection->insertOne([
             'numero_commande' => $numeroCommande,
@@ -55,6 +72,7 @@ class MongoDbService
     public function getSuivi(string $numeroCommande): array
     {
         $collection = $this->getCollection('commandes_suivi');
+        if (!$collection) return [];
 
         $results = $collection->find(
             ['numero_commande' => $numeroCommande],
@@ -78,6 +96,7 @@ class MongoDbService
     public function getCommandesParMenu(): array
     {
         $collection = $this->getCollection('commandes_stats');
+        if (!$collection) return [];
 
         $pipeline = [
             ['$group' => [
@@ -108,6 +127,7 @@ class MongoDbService
     public function getChiffreAffaires(?string $menuTitre = null, ?string $dateDebut = null, ?string $dateFin = null): array
     {
         $collection = $this->getCollection('commandes_stats');
+        if (!$collection) return [];
 
         $match = [];
 
@@ -163,6 +183,7 @@ class MongoDbService
     public function getMenusList(): array
     {
         $collection = $this->getCollection('commandes_stats');
+        if (!$collection) return [];
         return $collection->distinct('menu_titre');
     }
 }

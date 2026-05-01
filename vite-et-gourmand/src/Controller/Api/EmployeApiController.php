@@ -28,27 +28,46 @@ class EmployeApiController extends AbstractController
 {
     /**
      * GET /api/employe/commandes - Liste toutes les commandes
+     * Filtres optionnels : ?statut=accepté&client=jean
      */
     #[Route('/commandes', name: 'api_employe_commandes', methods: ['GET'])]
-    public function commandes(EntityManagerInterface $em): JsonResponse
+    public function commandes(Request $request, EntityManagerInterface $em): JsonResponse
     {
-        $commandes = $em->getRepository(Commande::class)->findBy([], ['date_commande' => 'DESC']);
+        $qb = $em->getRepository(Commande::class)->createQueryBuilder('c')
+            ->leftJoin('c.utilisateur', 'u')
+            ->orderBy('c.date_commande', 'DESC');
+
+        // Filtre par statut
+        $statut = trim($request->query->get('statut', ''));
+        if ($statut !== '') {
+            $qb->andWhere('c.statut = :statut')->setParameter('statut', $statut);
+        }
+
+        // Filtre par client (email ou prénom/nom)
+        $client = trim($request->query->get('client', ''));
+        if ($client !== '') {
+            $qb->andWhere(
+                'u.email LIKE :client OR u.nom LIKE :client OR u.prenom LIKE :client'
+            )->setParameter('client', '%' . $client . '%');
+        }
+
+        $commandes = $qb->getQuery()->getResult();
         $result = [];
 
         foreach ($commandes as $c) {
             $result[] = [
-                'id' => $c->getId(),
-                'numero_commande' => $c->getNumeroCommande(),
-                'date_commande' => $c->getDateCommande()?->format('Y-m-d H:i'),
-                'date_prestation' => $c->getDatePrestation()?->format('Y-m-d'),
-                'lieu_prestation' => htmlspecialchars($c->getLieuPrestation() ?? '', ENT_QUOTES, 'UTF-8'),
-                'nombre_personne' => $c->getNombrePersonne(),
-                'prix_total' => $c->getPrixMenu() + $c->getPrixLivraison(),
-                'statut' => $c->getStatut(),
-                'pret_materiel' => $c->isPretMateriel(),
-                'restitution_materiel' => $c->isRestitutionMateriel(),
-                'client_email' => $c->getUtilisateur() ? $c->getUtilisateur()->getEmail() : '',
-                'menu_titre' => $c->getMenu() ? htmlspecialchars($c->getMenu()->getTitre(), ENT_QUOTES, 'UTF-8') : '',
+                'id'                  => $c->getId(),
+                'numero_commande'     => $c->getNumeroCommande(),
+                'date_commande'       => $c->getDateCommande()?->format('Y-m-d H:i'),
+                'date_prestation'     => $c->getDatePrestation()?->format('Y-m-d'),
+                'lieu_prestation'     => htmlspecialchars($c->getLieuPrestation() ?? '', ENT_QUOTES, 'UTF-8'),
+                'nombre_personne'     => $c->getNombrePersonne(),
+                'prix_total'          => $c->getPrixMenu() + $c->getPrixLivraison(),
+                'statut'              => $c->getStatut(),
+                'pret_materiel'       => $c->isPretMateriel(),
+                'restitution_materiel'=> $c->isRestitutionMateriel(),
+                'client_email'        => $c->getUtilisateur() ? $c->getUtilisateur()->getEmail() : '',
+                'menu_titre'          => $c->getMenu() ? htmlspecialchars($c->getMenu()->getTitre(), ENT_QUOTES, 'UTF-8') : '',
             ];
         }
 
@@ -68,7 +87,7 @@ class EmployeApiController extends AbstractController
         MailerInterface $mailer
     ): JsonResponse {
         $data = json_decode($request->getContent(), true);
-        $nouveauStatut = htmlspecialchars(strip_tags(trim($data['statut'] ?? '')), ENT_QUOTES, 'UTF-8');
+        $nouveauStatut = trim($data['statut'] ?? '');
 
         $statutsValides = [
             'en cours', 'accepté', 'en préparation', 'en cours de livraison',
@@ -133,7 +152,34 @@ class EmployeApiController extends AbstractController
                     ->from('noreply@viteetgourmand.fr')
                     ->to($commande->getUtilisateur()->getEmail())
                     ->subject('Commande ' . $commande->getNumeroCommande() . ' terminée')
-                    ->html('<h2>Commande terminée !</h2><p>Donnez-nous votre avis dans votre espace client.</p>');
+                    ->html(
+                        '<h2>Commande terminée !</h2>' .
+                        '<p>Bonjour ' . htmlspecialchars($commande->getUtilisateur()->getPrenom()) . ',</p>' .
+                        '<p>Votre commande <strong>' . $commande->getNumeroCommande() . '</strong> est terminée.</p>' .
+                        '<p>Connectez-vous à votre espace client pour nous laisser un avis !</p>'
+                    );
+                $mailer->send($email);
+            } catch (\Exception $e) {}
+        }
+
+        // Mail restitution matériel (sous 10 jours ouvrés, sinon 600€ de frais)
+        if ($nouveauStatut === 'en attente du retour de matériel' && $commande->getUtilisateur()) {
+            try {
+                $email = (new Email())
+                    ->from('noreply@viteetgourmand.fr')
+                    ->to($commande->getUtilisateur()->getEmail())
+                    ->subject('Retour de matériel requis — ' . $commande->getNumeroCommande())
+                    ->html(
+                        '<h2>Retour de matériel</h2>' .
+                        '<p>Bonjour ' . htmlspecialchars($commande->getUtilisateur()->getPrenom()) . ',</p>' .
+                        '<p>Du matériel vous a été prêté dans le cadre de votre commande <strong>' .
+                        $commande->getNumeroCommande() . '</strong>.</p>' .
+                        '<p><strong>Vous disposez de 10 jours ouvrés pour le restituer.</strong></p>' .
+                        '<p>Sans retour dans ce délai, des frais de <strong>600 €</strong> vous seront facturés ' .
+                        'conformément aux conditions générales de vente.</p>' .
+                        '<p>Pour organiser la restitution, contactez-nous par mail à ' .
+                        '<a href="mailto:contact@viteetgourmand.fr">contact@viteetgourmand.fr</a>.</p>'
+                    );
                 $mailer->send($email);
             } catch (\Exception $e) {}
         }
@@ -175,7 +221,7 @@ class EmployeApiController extends AbstractController
         EntityManagerInterface $em
     ): JsonResponse {
         $data = json_decode($request->getContent(), true);
-        $statut = htmlspecialchars(strip_tags(trim($data['statut'] ?? '')), ENT_QUOTES, 'UTF-8');
+        $statut = trim($data['statut'] ?? '');
 
         if (!in_array($statut, ['validé', 'refusé'])) {
             return $this->json(['success' => false, 'message' => 'Statut invalide.'], 400);

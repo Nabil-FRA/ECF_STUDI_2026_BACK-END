@@ -8,6 +8,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\RateLimiter\RateLimiterFactory;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * Rate Limiter pour protéger les endpoints sensibles.
@@ -23,12 +24,18 @@ class ApiRateLimiterListener
 {
     public function __construct(
         private RateLimiterFactory $apiLoginLimiter,
-        private RateLimiterFactory $apiRegisterLimiter
+        private RateLimiterFactory $apiRegisterLimiter,
+        #[Autowire('%kernel.environment%')] private string $env = 'prod'
     ) {}
 
     public function __invoke(RequestEvent $event): void
     {
         if (!$event->isMainRequest()) {
+            return;
+        }
+
+        // Désactivé en dev pour permettre les tests répétés
+        if ($this->env === 'dev') {
             return;
         }
 

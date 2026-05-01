@@ -16,6 +16,7 @@ use Symfony\Component\Mime\Email;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * Controller API d'authentification.
@@ -204,6 +205,147 @@ class AuthApiController extends AbstractController
             'token' => $token,
             'user' => $this->serializeUser($user),
         ], Response::HTTP_CREATED);
+    }
+
+    /**
+     * POST /api/auth/forgot-password
+     * Corps : { "email": "..." }
+     * Génère un token signé et envoie un lien de réinitialisation par email.
+     * Réponse générique : ne révèle pas si l'email existe (sécurité).
+     */
+    #[Route('/forgot-password', name: 'api_auth_forgot_password', methods: ['POST'])]
+    public function forgotPassword(
+        Request $request,
+        UtilisateurRepository $utilisateurRepository,
+        MailerInterface $mailer,
+        #[Autowire('%env(FRONTEND_URL)%')] string $frontendUrl = 'http://localhost:5173'
+    ): JsonResponse {
+        $data = json_decode($request->getContent(), true);
+        $email = $this->sanitizeInput($data['email'] ?? '');
+
+        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return $this->json([
+                'success' => false,
+                'message' => 'Email invalide.'
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        $user = $utilisateurRepository->findOneBy(['email' => $email]);
+
+        // On traite silencieusement si l'email n'existe pas (anti-énumération)
+        if ($user) {
+            $expiry = time() + 3600; // valide 1 heure
+            $secret = $this->getParameter('kernel.secret');
+            $token = base64_encode(
+                $user->getEmail() . '|' . $expiry . '|' .
+                hash('sha256', $user->getEmail() . $expiry . $secret)
+            );
+
+            // Lien vers le front-end SPA (ou Twig en fallback)
+            $resetUrl = rtrim($frontendUrl, '/') . '/reinitialiser-mot-de-passe?token=' . urlencode($token);
+
+            try {
+                $emailMsg = (new Email())
+                    ->from('noreply@viteetgourmand.fr')
+                    ->to($user->getEmail())
+                    ->subject('Réinitialisation de votre mot de passe - Vite & Gourmand')
+                    ->html(
+                        '<h2>Réinitialisation de mot de passe</h2>' .
+                        '<p>Bonjour ' . htmlspecialchars($user->getPrenom()) . ',</p>' .
+                        '<p>Vous avez demandé la réinitialisation de votre mot de passe.</p>' .
+                        '<p><a href="' . $resetUrl . '" style="display:inline-block;padding:12px 25px;' .
+                        'background:#007bff;color:#fff;text-decoration:none;border-radius:6px;">' .
+                        'Réinitialiser mon mot de passe</a></p>' .
+                        '<p>Ce lien est valable <strong>1 heure</strong>.</p>' .
+                        '<p>Si vous n\'avez pas fait cette demande, ignorez cet email.</p>' .
+                        '<p><em>L\'équipe Vite &amp; Gourmand</em></p>'
+                    );
+                $mailer->send($emailMsg);
+            } catch (\Exception $e) {
+                // Mail non bloquant
+            }
+        }
+
+        // Message identique qu'il y ait ou non un compte (sécurité)
+        return $this->json([
+            'success' => true,
+            'message' => 'Si un compte existe avec cet email, un lien de réinitialisation a été envoyé.'
+        ]);
+    }
+
+    /**
+     * POST /api/auth/reset-password
+     * Corps : { "token": "...", "password": "..." }
+     * Valide le token HMAC-SHA256, vérifie l'expiration, et met à jour le mot de passe.
+     */
+    #[Route('/reset-password', name: 'api_auth_reset_password', methods: ['POST'])]
+    public function resetPassword(
+        Request $request,
+        UtilisateurRepository $utilisateurRepository,
+        UserPasswordHasherInterface $passwordHasher,
+        EntityManagerInterface $em
+    ): JsonResponse {
+        $data = json_decode($request->getContent(), true);
+        $tokenRaw = $data['token'] ?? '';
+        $newPassword = $data['password'] ?? '';
+
+        if (empty($tokenRaw) || empty($newPassword)) {
+            return $this->json([
+                'success' => false,
+                'message' => 'Token et mot de passe requis.'
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Décoder le token base64
+        $decoded = base64_decode($tokenRaw, true);
+        if ($decoded === false) {
+            return $this->json(['success' => false, 'message' => 'Token invalide.'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $parts = explode('|', $decoded);
+        if (count($parts) !== 3) {
+            return $this->json(['success' => false, 'message' => 'Token invalide.'], Response::HTTP_BAD_REQUEST);
+        }
+
+        [$email, $expiry, $hash] = $parts;
+
+        // Vérifier l'expiration
+        if (time() > (int) $expiry) {
+            return $this->json([
+                'success' => false,
+                'message' => 'Ce lien a expiré. Veuillez refaire une demande.'
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Vérifier la signature HMAC
+        $secret = $this->getParameter('kernel.secret');
+        $expectedHash = hash('sha256', $email . $expiry . $secret);
+        if (!hash_equals($expectedHash, $hash)) {
+            return $this->json(['success' => false, 'message' => 'Token invalide.'], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Trouver l'utilisateur
+        $user = $utilisateurRepository->findOneBy(['email' => $email]);
+        if (!$user) {
+            return $this->json(['success' => false, 'message' => 'Token invalide.'], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Valider la politique de mot de passe
+        if (!$this->validatePassword($newPassword)) {
+            return $this->json([
+                'success' => false,
+                'message' => 'Le mot de passe doit contenir au moins 10 caractères, 1 majuscule, 1 minuscule, 1 chiffre et 1 caractère spécial.'
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Mettre à jour le mot de passe
+        $user->setPassword($passwordHasher->hashPassword($user, $newPassword));
+        $em->flush();
+
+        return $this->json([
+            'success' => true,
+            'message' => 'Mot de passe réinitialisé avec succès. Vous pouvez vous connecter.'
+        ]);
     }
 
     /**
