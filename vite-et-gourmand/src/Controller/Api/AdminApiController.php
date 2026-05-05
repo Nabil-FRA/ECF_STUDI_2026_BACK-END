@@ -2,10 +2,12 @@
 
 namespace App\Controller\Api;
 
+use App\Entity\Allergene;
 use App\Entity\Avis;
 use App\Entity\Commande;
 use App\Entity\Menu;
 use App\Entity\MenuImage;
+use App\Entity\Plat;
 use App\Entity\Utilisateur;
 use App\Repository\MenuRepository;
 use App\Repository\RegimeRepository;
@@ -367,6 +369,76 @@ class AdminApiController extends AbstractController
         $em->flush();
 
         return $this->json(['success' => true, 'message' => 'Image supprimée.']);
+    }
+
+    /**
+     * POST /api/admin/menus/{id}/plats - Ajouter un plat à un menu
+     */
+    #[Route('/menus/{id}/plats', name: 'api_admin_menu_plat_add', methods: ['POST'])]
+    public function addMenuPlat(
+        Menu $menu,
+        Request $request,
+        EntityManagerInterface $em
+    ): JsonResponse {
+        $data = json_decode($request->getContent(), true);
+        $titre = strip_tags(trim($data['titre_plat'] ?? ''));
+
+        if (empty($titre)) {
+            return $this->json(['success' => false, 'message' => 'Titre du plat obligatoire.'], 400);
+        }
+
+        $plat = new Plat();
+        $plat->setTitrePlat($titre);
+
+        // Associer les allergènes
+        if (!empty($data['allergenes']) && is_array($data['allergenes'])) {
+            foreach ($data['allergenes'] as $allergeneId) {
+                $allergene = $em->getRepository(Allergene::class)->find((int) $allergeneId);
+                if ($allergene) {
+                    $plat->addAllergene($allergene);
+                }
+            }
+        }
+
+        $em->persist($plat);
+        $menu->addPlat($plat);
+        $em->flush();
+
+        $allergenesList = [];
+        foreach ($plat->getAllergenes() as $a) {
+            $allergenesList[] = ['id' => $a->getId(), 'libelle' => $a->getLIBELLE()];
+        }
+
+        return $this->json([
+            'success' => true,
+            'plat' => [
+                'id'        => $plat->getId(),
+                'titre_plat' => $plat->getTitrePlat(),
+                'allergenes' => $allergenesList,
+            ]
+        ], 201);
+    }
+
+    /**
+     * DELETE /api/admin/menus/{menuId}/plats/{platId} - Supprimer un plat d'un menu
+     */
+    #[Route('/menus/{menuId}/plats/{platId}', name: 'api_admin_menu_plat_delete', methods: ['DELETE'])]
+    public function deleteMenuPlat(
+        int $menuId,
+        int $platId,
+        EntityManagerInterface $em
+    ): JsonResponse {
+        $menu = $em->getRepository(Menu::class)->find($menuId);
+        $plat = $em->getRepository(Plat::class)->find($platId);
+
+        if (!$menu || !$plat) {
+            return $this->json(['success' => false, 'message' => 'Menu ou plat introuvable.'], 404);
+        }
+
+        $menu->removePlat($plat);
+        $em->flush();
+
+        return $this->json(['success' => true, 'message' => 'Plat retiré du menu.']);
     }
 
     /**
