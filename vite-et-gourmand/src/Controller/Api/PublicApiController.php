@@ -16,8 +16,9 @@ use Symfony\Component\Routing\Attribute\Route;
  * Controller API pour les données publiques.
  * 
  * SÉCURITÉ :
- * - Validation et sanitisation des entrées contact
- * - Échappement des sorties
+ * - Validation et sanitisation des entrées contact (strip_tags + trim)
+ * - Sorties JSON brutes (pas de htmlspecialchars — JSON n'est pas du HTML)
+ * - htmlspecialchars() conservé uniquement dans les corps d'e-mails HTML
  * - Seuls les avis validés sont exposés
  */
 #[Route('/api')]
@@ -39,11 +40,11 @@ class PublicApiController extends AbstractController
             $result[] = [
                 'id' => $avis->getId(),
                 'note' => $avis->getNote(),
-                'description' => htmlspecialchars($avis->getDescription() ?? '', ENT_QUOTES, 'UTF-8'),
-                'prenom_utilisateur' => htmlspecialchars(
-                    $avis->getUtilisateur() ? $avis->getUtilisateur()->getPrenom() : 'Anonyme',
-                    ENT_QUOTES, 'UTF-8'
-                ),
+                // JSON n'est pas du HTML — pas de htmlspecialchars() sur les sorties
+                'description' => $avis->getDescription() ?? '',
+                'prenom_utilisateur' => $avis->getUtilisateur()
+                    ? $avis->getUtilisateur()->getPrenom()
+                    : 'Anonyme',
             ];
         }
 
@@ -60,7 +61,7 @@ class PublicApiController extends AbstractController
         foreach ($horaireRepository->findAll() as $h) {
             $horaires[] = [
                 'id' => $h->getId(),
-                'jour' => htmlspecialchars($h->getJour(), ENT_QUOTES, 'UTF-8'),
+                'jour' => $h->getJour(),
                 'heure_ouverture' => $h->getHeureOuverture(),
                 'heure_fermeture' => $h->getHeureFermeture(),
             ];
@@ -83,9 +84,9 @@ class PublicApiController extends AbstractController
     {
         $data = json_decode($request->getContent(), true);
 
-        $emailVisiteur = htmlspecialchars(strip_tags(trim($data['email'] ?? '')), ENT_QUOTES, 'UTF-8');
-        $titre = htmlspecialchars(strip_tags(trim($data['titre'] ?? '')), ENT_QUOTES, 'UTF-8');
-        $description = htmlspecialchars(strip_tags(trim($data['description'] ?? '')), ENT_QUOTES, 'UTF-8');
+        $emailVisiteur = strip_tags(trim($data['email'] ?? ''));
+        $titre = strip_tags(trim($data['titre'] ?? ''));
+        $description = strip_tags(trim($data['description'] ?? ''));
 
         // Champ honeypot (anti-spam) - si rempli, c'est un bot
         $honeypot = $data['website'] ?? '';

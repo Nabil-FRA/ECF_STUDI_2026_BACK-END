@@ -161,6 +161,10 @@ class MenuApiController extends AbstractController
      */
     private function serializeMenu(Menu $menu): array
     {
+        // Image principale : première image du menu (si disponible)
+        $firstImage = $menu->getMenuImages()->first();
+        $imagePrincipale = $firstImage ? $firstImage->getUrlImage() : null;
+
         return [
             'id' => $menu->getId(),
             'titre' => $this->escape($menu->getTitre()),
@@ -168,6 +172,7 @@ class MenuApiController extends AbstractController
             'prix_par_personne' => $menu->getPrixParPersonne(),
             'nombre_personne_minimum' => $menu->getNombrePersonneMinimum(),
             'quantite_restante' => $menu->getQuantiteRestante(),
+            'image' => $imagePrincipale,
             'theme' => $menu->getTheme() ? [
                 'id' => $menu->getTheme()->getId(),
                 'libelle' => $this->escape($menu->getTheme()->getLibelle()),
@@ -180,10 +185,11 @@ class MenuApiController extends AbstractController
     }
 
     /**
-     * Échappe une chaîne pour la sortie JSON.
+     * Retourne la valeur brute pour la sortie JSON.
+     * JSON n'est pas du HTML — pas de htmlspecialchars() sur les sorties JSON.
      */
     private function escape(string $value): string
     {
-        return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+        return $value;
     }
 }

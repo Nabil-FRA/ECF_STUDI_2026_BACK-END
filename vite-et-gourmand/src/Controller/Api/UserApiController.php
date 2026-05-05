@@ -14,6 +14,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
@@ -436,6 +437,79 @@ class UserApiController extends AbstractController
         return $this->json(['success' => true, 'message' => 'Merci pour votre avis !'], 201);
     }
 
+    /**
+     * PUT /api/user/password - Changer son mot de passe
+     */
+    #[Route('/password', name: 'api_user_password', methods: ['PUT'])]
+    public function changePassword(
+        Request $request,
+        EntityManagerInterface $em,
+        UserPasswordHasherInterface $passwordHasher
+    ): JsonResponse {
+        $user = $this->getUser();
+        $data = json_decode($request->getContent(), true);
+
+        $currentPassword = $data['current_password'] ?? '';
+        $newPassword     = $data['new_password'] ?? '';
+
+        if (empty($currentPassword) || empty($newPassword)) {
+            return $this->json(['success' => false, 'message' => 'Champs obligatoires manquants.'], 400);
+        }
+
+        if (!$passwordHasher->isPasswordValid($user, $currentPassword)) {
+            return $this->json(['success' => false, 'message' => 'Mot de passe actuel incorrect.'], 401);
+        }
+
+        // Validation mot de passe fort (10 chars min + majuscule + minuscule + chiffre + spécial)
+        if (strlen($newPassword) < 10
+            || !preg_match('/[A-Z]/', $newPassword)
+            || !preg_match('/[a-z]/', $newPassword)
+            || !preg_match('/[0-9]/', $newPassword)
+            || !preg_match('/[^A-Za-z0-9]/', $newPassword)
+        ) {
+            return $this->json([
+                'success' => false,
+                'message' => 'Le mot de passe doit contenir 10 caractères minimum, 1 majuscule, 1 minuscule, 1 chiffre et 1 caractère spécial.'
+            ], 400);
+        }
+
+        $user->setPassword($passwordHasher->hashPassword($user, $newPassword));
+        $em->flush();
+
+        return $this->json(['success' => true, 'message' => 'Mot de passe modifié.']);
+    }
+
+    /**
+     * DELETE /api/user/account - Supprimer son compte
+     */
+    #[Route('/account', name: 'api_user_delete_account', methods: ['DELETE'])]
+    public function deleteAccount(EntityManagerInterface $em): JsonResponse
+    {
+        $user = $this->getUser();
+
+        // Vérifier qu'il n'y a pas de commandes actives (non annulées / non terminées)
+        $commandesActives = $user->getCommandes()->filter(function($c) {
+            return !in_array($c->getStatut(), ['annulée', 'terminée']);
+        });
+
+        if ($commandesActives->count() > 0) {
+            return $this->json([
+                'success' => false,
+                'message' => 'Impossible de supprimer le compte : vous avez des commandes en cours.'
+            ], 400);
+        }
+
+        // Supprimer les commandes terminées/annulées puis le compte
+        foreach ($user->getCommandes() as $commande) {
+            $em->remove($commande);
+        }
+
+        $em->remove($user);
+        $em->flush();
+
+        return $this->json(['success' => true, 'message' => 'Compte supprimé.']);
+    }
+
     private function serializeCommande(Commande $commande): array
     {
         return [
@@ -443,7 +517,7 @@ class UserApiController extends AbstractController
             'numero_commande' => $commande->getNumeroCommande(),
             'date_commande' => $commande->getDateCommande()?->format('Y-m-d H:i'),
             'date_prestation' => $commande->getDatePrestation()?->format('Y-m-d'),
-            'lieu_prestation' => htmlspecialchars($commande->getLieuPrestation() ?? '', ENT_QUOTES, 'UTF-8'),
+            'lieu_prestation' => $commande->getLieuPrestation() ?? '',
             'heure_livraison' => $commande->getHeureLivraison(),
             'nombre_personne' => $commande->getNombrePersonne(),
             'prix_menu' => $commande->getPrixMenu(),
@@ -454,13 +528,15 @@ class UserApiController extends AbstractController
             'restitution_materiel' => $commande->isRestitutionMateriel(),
             'menu' => $commande->getMenu() ? [
                 'id' => $commande->getMenu()->getId(),
-                'titre' => htmlspecialchars($commande->getMenu()->getTitre(), ENT_QUOTES, 'UTF-8'),
+                'titre' => $commande->getMenu()->getTitre(),
             ] : null,
         ];
     }
 
     private function sanitize(string $input): string
     {
-        return htmlspecialchars(strip_tags(trim($input)), ENT_QUOTES, 'UTF-8');
+        // strip_tags() seulement — pas de htmlspecialchars() avant stockage DB
+        // (les entités HTML ne doivent pas être stockées dans une BDD JSON-first)
+        return strip_tags(trim($input));
     }
 }

@@ -3,6 +3,8 @@
 namespace App\Controller\Api;
 
 use App\Entity\Commande;
+use App\Entity\Horaire;
+use App\Repository\HoraireRepository;
 use App\Service\MongoDbService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -60,14 +62,14 @@ class EmployeApiController extends AbstractController
                 'numero_commande'     => $c->getNumeroCommande(),
                 'date_commande'       => $c->getDateCommande()?->format('Y-m-d H:i'),
                 'date_prestation'     => $c->getDatePrestation()?->format('Y-m-d'),
-                'lieu_prestation'     => htmlspecialchars($c->getLieuPrestation() ?? '', ENT_QUOTES, 'UTF-8'),
+                'lieu_prestation'     => $c->getLieuPrestation() ?? '',
                 'nombre_personne'     => $c->getNombrePersonne(),
                 'prix_total'          => $c->getPrixMenu() + $c->getPrixLivraison(),
                 'statut'              => $c->getStatut(),
                 'pret_materiel'       => $c->isPretMateriel(),
                 'restitution_materiel'=> $c->isRestitutionMateriel(),
                 'client_email'        => $c->getUtilisateur() ? $c->getUtilisateur()->getEmail() : '',
-                'menu_titre'          => $c->getMenu() ? htmlspecialchars($c->getMenu()->getTitre(), ENT_QUOTES, 'UTF-8') : '',
+                'menu_titre'          => $c->getMenu() ? $c->getMenu()->getTitre() : '',
             ];
         }
 
@@ -108,8 +110,8 @@ class EmployeApiController extends AbstractController
                     'message' => 'Mode de contact et motif obligatoires pour annulation.'
                 ], 400);
             }
-            $commande->setModeContactClient(htmlspecialchars(strip_tags($modeContact), ENT_QUOTES, 'UTF-8'));
-            $commande->setMotifAnnulation(htmlspecialchars(strip_tags($motif), ENT_QUOTES, 'UTF-8'));
+            $commande->setModeContactClient(strip_tags($modeContact));
+            $commande->setMotifAnnulation(strip_tags($motif));
         }
 
         // Règle : pas de "en attente retour matériel" si pas de prêt
@@ -188,6 +190,45 @@ class EmployeApiController extends AbstractController
     }
 
     /**
+     * PUT /api/employe/horaires - Mettre à jour les horaires d'ouverture
+     * Corps : [{ "jour": "lundi", "heure_ouverture": "08:00", "heure_fermeture": "19:00" }, ...]
+     * Envoyer heure_ouverture/heure_fermeture à null pour indiquer "Fermé".
+     */
+    #[Route('/horaires', name: 'api_employe_horaires_update', methods: ['PUT'])]
+    public function updateHoraires(
+        Request $request,
+        HoraireRepository $horaireRepository,
+        EntityManagerInterface $em
+    ): JsonResponse {
+        $data = json_decode($request->getContent(), true);
+
+        if (!is_array($data)) {
+            return $this->json(['success' => false, 'message' => 'Format invalide.'], 400);
+        }
+
+        $joursValides = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
+
+        foreach ($data as $item) {
+            $jour = strtolower(trim($item['jour'] ?? ''));
+            if (!in_array($jour, $joursValides)) continue;
+
+            $horaire = $horaireRepository->findOneBy(['jour' => $jour]);
+            if (!$horaire) {
+                $horaire = new Horaire();
+                $horaire->setJour($jour);
+                $em->persist($horaire);
+            }
+
+            $horaire->setHeureOuverture($item['heure_ouverture'] ?: null);
+            $horaire->setHeureFermeture($item['heure_fermeture'] ?: null);
+        }
+
+        $em->flush();
+
+        return $this->json(['success' => true, 'message' => 'Horaires mis à jour.']);
+    }
+
+    /**
      * GET /api/employe/avis - Liste des avis en attente
      */
     #[Route('/avis', name: 'api_employe_avis', methods: ['GET'])]
@@ -201,7 +242,7 @@ class EmployeApiController extends AbstractController
             $result[] = [
                 'id' => $a->getId(),
                 'note' => $a->getNote(),
-                'description' => htmlspecialchars($a->getDescription() ?? '', ENT_QUOTES, 'UTF-8'),
+                'description' => $a->getDescription() ?? '',
                 'statut' => $a->getStatut(),
                 'client' => $a->getUtilisateur() ? $a->getUtilisateur()->getPrenom() . ' ' . $a->getUtilisateur()->getNom() : '',
                 'commande' => $a->getCommande() ? $a->getCommande()->getNumeroCommande() : '',

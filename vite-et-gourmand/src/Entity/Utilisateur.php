@@ -104,12 +104,25 @@ class Utilisateur implements UserInterface, PasswordAuthenticatedUserInterface
 
     /**
      * @see UserInterface
+     * Dérive les rôles Symfony depuis la relation Role (source de vérité)
+     * afin de ne jamais désynchroniser le champ JSON roles avec le rôle FK.
      */
     public function getRoles(): array
     {
         $roles = $this->roles;
         // guarantee every user at least has ROLE_USER
         $roles[] = 'ROLE_USER';
+
+        // Dériver automatiquement le rôle Symfony depuis la FK Role
+        if ($this->role !== null) {
+            $libelle = $this->role->getLibelle();
+            if ($libelle === 'administrateur') {
+                $roles[] = 'ROLE_ADMIN';
+            } elseif ($libelle === 'employe') {
+                $roles[] = 'ROLE_EMPLOYE';
+            }
+            // 'client', 'desactive' → ROLE_USER seulement
+        }
 
         return array_unique($roles);
     }
