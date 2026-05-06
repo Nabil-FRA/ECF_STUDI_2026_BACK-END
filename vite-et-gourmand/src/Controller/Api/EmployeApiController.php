@@ -240,12 +240,17 @@ class EmployeApiController extends AbstractController
         $result = [];
         foreach ($avisList as $a) {
             $result[] = [
-                'id' => $a->getId(),
-                'note' => $a->getNote(),
+                'id'          => $a->getId(),
+                'note'        => $a->getNote(),
                 'description' => $a->getDescription() ?? '',
-                'statut' => $a->getStatut(),
-                'client' => $a->getUtilisateur() ? $a->getUtilisateur()->getPrenom() . ' ' . $a->getUtilisateur()->getNom() : '',
-                'commande' => $a->getCommande() ? $a->getCommande()->getNumeroCommande() : '',
+                'statut'      => $a->getStatut(),
+                'client'      => $a->getUtilisateur()
+                    ? $a->getUtilisateur()->getPrenom() . ' ' . $a->getUtilisateur()->getNom()
+                    : '',
+                'commande'    => $a->getCommande() ? $a->getCommande()->getNumeroCommande() : '',
+                'menu_titre'  => ($a->getCommande() && $a->getCommande()->getMenu())
+                    ? $a->getCommande()->getMenu()->getTitre()
+                    : '',
             ];
         }
 
