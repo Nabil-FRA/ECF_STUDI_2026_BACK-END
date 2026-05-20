@@ -3,7 +3,7 @@
 > **ECF — RNCP37674 Developpeur Web et Web Mobile**
 > Bloc de competences BC02 — Developper la partie back-end d'une application web
 
-Application de traiteur en ligne permettant la gestion des menus, des commandes, des clients, des employes et des statistiques. Le back-end expose une **API REST securisee** consommee par le front-end SPA, et propose egalement une **interface d'administration Twig** via EasyAdmin.
+Application de traiteur en ligne permettant la gestion des menus, des commandes, des clients, des employes et des statistiques. Le back-end expose une **API REST securisee** consommée par le front-end SPA, et propose egalement une **interface d'administration Twig** via EasyAdmin.
 
 ---
 
@@ -94,7 +94,7 @@ vite-et-gourmand/
 ## Installation et demarrage
 
 > **Important** : le `docker-compose.yml` orchestre a la fois le back-end ET le front-end.
-> Les deux depots doivent etre clones en respectant l'arborescence ci-dessous.
+> Les deux depots doivent être clonés en respectant l'arborescence ci-dessous.
 
 ### 1. Cloner les deux depots
 
