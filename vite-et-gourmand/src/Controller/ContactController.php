@@ -34,7 +34,7 @@ class ContactController extends AbstractController
 
             // Envoi du mail à l'entreprise
             $email = (new Email())
-                ->from('noreply@viteetgourmand.fr')
+                ->from('maxnabil2ait@gmail.com')
                 ->to('contact@viteetgourmand.fr')
                 ->replyTo($emailVisiteur)
                 ->subject('[Contact] ' . $titre)

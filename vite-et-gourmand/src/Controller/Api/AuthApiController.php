@@ -7,6 +7,7 @@ use App\Repository\RoleRepository;
 use App\Repository\UtilisateurRepository;
 use App\Security\ApiTokenAuthenticator;
 use Doctrine\ORM\EntityManagerInterface;
+use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -18,26 +19,31 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
-/**
- * Controller API d'authentification.
- * 
- * SÉCURITÉ implémentée :
- * - Validation stricte de toutes les entrées (XSS, injection)
- * - Hashage bcrypt des mots de passe
- * - Token HMAC-SHA256 signé
- * - Rate limiting (voir ApiRateLimiterListener)
- * - Messages d'erreur génériques (pas de fuite d'info)
- * - Politique de mot de passe forte (RGPD/CNIL)
- */
 #[Route('/api/auth')]
+#[OA\Tag(name: 'Authentification')]
 class AuthApiController extends AbstractController
 {
-    /**
-     * POST /api/auth/login
-     * Corps : { "email": "...", "password": "..." }
-     * Retour : { "success": true, "token": "...", "user": {...} }
-     */
     #[Route('/login', name: 'api_auth_login', methods: ['POST'])]
+    #[OA\Post(
+        summary: 'Connexion utilisateur',
+        description: 'Authentifie un utilisateur et retourne un token Bearer HMAC-SHA256.',
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['email', 'password'],
+                properties: [
+                    new OA\Property(property: 'email', type: 'string', format: 'email', example: 'client@example.com'),
+                    new OA\Property(property: 'password', type: 'string', example: 'MonMotDePasse1!')
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Connexion réussie — retourne le token et les infos utilisateur'),
+            new OA\Response(response: 400, description: 'Email ou mot de passe manquant / format email invalide'),
+            new OA\Response(response: 401, description: 'Identifiants incorrects'),
+            new OA\Response(response: 403, description: 'Compte désactivé')
+        ]
+    )]
     public function login(
         Request $request,
         UtilisateurRepository $utilisateurRepository,
@@ -45,7 +51,6 @@ class AuthApiController extends AbstractController
     ): JsonResponse {
         $data = json_decode($request->getContent(), true);
 
-        // Validation des entrées
         $email = $this->sanitizeInput($data['email'] ?? '');
         $password = $data['password'] ?? '';
 
@@ -56,7 +61,6 @@ class AuthApiController extends AbstractController
             ], Response::HTTP_BAD_REQUEST);
         }
 
-        // Validation du format email (protection injection)
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             return $this->json([
                 'success' => false,
@@ -66,7 +70,6 @@ class AuthApiController extends AbstractController
 
         $user = $utilisateurRepository->findOneBy(['email' => $email]);
 
-        // Message générique pour ne pas révéler si l'email existe
         if (!$user || !$passwordHasher->isPasswordValid($user, $password)) {
             return $this->json([
                 'success' => false,
@@ -74,7 +77,6 @@ class AuthApiController extends AbstractController
             ], Response::HTTP_UNAUTHORIZED);
         }
 
-        // Vérifier que le compte n'est pas désactivé
         if ($user->getRole() && $user->getRole()->getLibelle() === 'desactive') {
             return $this->json([
                 'success' => false,
@@ -82,7 +84,6 @@ class AuthApiController extends AbstractController
             ], Response::HTTP_FORBIDDEN);
         }
 
-        // Générer le token signé
         $appSecret = $this->getParameter('kernel.secret');
         $token = ApiTokenAuthenticator::generateToken($user->getEmail(), $appSecret);
 
@@ -93,11 +94,32 @@ class AuthApiController extends AbstractController
         ]);
     }
 
-    /**
-     * POST /api/auth/register
-     * Corps : { "email", "password", "nom", "prenom", "telephone", "ville", "pays", "adresse_postale" }
-     */
     #[Route('/register', name: 'api_auth_register', methods: ['POST'])]
+    #[OA\Post(
+        summary: 'Inscription utilisateur',
+        description: 'Crée un nouveau compte client. Envoie un email de bienvenue. Retourne un token.',
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['email', 'password', 'nom', 'prenom'],
+                properties: [
+                    new OA\Property(property: 'email', type: 'string', format: 'email', example: 'nouveau@example.com'),
+                    new OA\Property(property: 'password', type: 'string', description: 'Min 10 car., 1 maj, 1 min, 1 chiffre, 1 spécial', example: 'MonMotDePasse1!'),
+                    new OA\Property(property: 'nom', type: 'string', example: 'Dupont'),
+                    new OA\Property(property: 'prenom', type: 'string', example: 'Jean'),
+                    new OA\Property(property: 'telephone', type: 'string', example: '06 12 34 56 78'),
+                    new OA\Property(property: 'ville', type: 'string', example: 'Bordeaux'),
+                    new OA\Property(property: 'pays', type: 'string', example: 'France'),
+                    new OA\Property(property: 'adresse_postale', type: 'string', example: '12 rue de la Paix, 33000 Bordeaux')
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 201, description: 'Compte créé avec succès — retourne token et infos'),
+            new OA\Response(response: 400, description: 'Champs obligatoires manquants / mot de passe trop faible / téléphone invalide'),
+            new OA\Response(response: 409, description: 'Email déjà utilisé')
+        ]
+    )]
     public function register(
         Request $request,
         UtilisateurRepository $utilisateurRepository,
@@ -108,7 +130,6 @@ class AuthApiController extends AbstractController
     ): JsonResponse {
         $data = json_decode($request->getContent(), true);
 
-        // Sanitisation de toutes les entrées (protection XSS)
         $email = $this->sanitizeInput($data['email'] ?? '');
         $password = $data['password'] ?? '';
         $nom = $this->sanitizeInput($data['nom'] ?? '');
@@ -118,7 +139,6 @@ class AuthApiController extends AbstractController
         $pays = $this->sanitizeInput($data['pays'] ?? '');
         $adressePostale = $this->sanitizeInput($data['adresse_postale'] ?? '');
 
-        // Validation des champs obligatoires
         if (empty($email) || empty($password) || empty($nom) || empty($prenom)) {
             return $this->json([
                 'success' => false,
@@ -126,7 +146,6 @@ class AuthApiController extends AbstractController
             ], Response::HTTP_BAD_REQUEST);
         }
 
-        // Validation email
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             return $this->json([
                 'success' => false,
@@ -134,8 +153,6 @@ class AuthApiController extends AbstractController
             ], Response::HTTP_BAD_REQUEST);
         }
 
-        // Politique de mot de passe forte (RGPD/CNIL)
-        // Min 10 caractères, 1 majuscule, 1 minuscule, 1 chiffre, 1 caractère spécial
         if (!$this->validatePassword($password)) {
             return $this->json([
                 'success' => false,
@@ -143,7 +160,6 @@ class AuthApiController extends AbstractController
             ], Response::HTTP_BAD_REQUEST);
         }
 
-        // Vérifier unicité email
         if ($utilisateurRepository->findOneBy(['email' => $email])) {
             return $this->json([
                 'success' => false,
@@ -151,7 +167,6 @@ class AuthApiController extends AbstractController
             ], Response::HTTP_CONFLICT);
         }
 
-        // Validation téléphone (si fourni)
         if (!empty($telephone) && !preg_match('/^[\d\s\+\-\.()]{6,20}$/', $telephone)) {
             return $this->json([
                 'success' => false,
@@ -159,7 +174,6 @@ class AuthApiController extends AbstractController
             ], Response::HTTP_BAD_REQUEST);
         }
 
-        // Création de l'utilisateur
         $user = new Utilisateur();
         $user->setEmail($email);
         $user->setPassword($passwordHasher->hashPassword($user, $password));
@@ -177,10 +191,9 @@ class AuthApiController extends AbstractController
         $em->persist($user);
         $em->flush();
 
-        // Mail de bienvenue
         try {
             $emailMsg = (new Email())
-                ->from('noreply@viteetgourmand.fr')
+                ->from('maxnabil2ait@gmail.com')
                 ->to($user->getEmail())
                 ->subject('Bienvenue chez Vite & Gourmand !')
                 ->html(
@@ -192,10 +205,8 @@ class AuthApiController extends AbstractController
                 );
             $mailer->send($emailMsg);
         } catch (\Exception $e) {
-            // Le mail n'est pas bloquant
         }
 
-        // Générer le token
         $appSecret = $this->getParameter('kernel.secret');
         $token = ApiTokenAuthenticator::generateToken($user->getEmail(), $appSecret);
 
@@ -207,13 +218,24 @@ class AuthApiController extends AbstractController
         ], Response::HTTP_CREATED);
     }
 
-    /**
-     * POST /api/auth/forgot-password
-     * Corps : { "email": "..." }
-     * Génère un token signé et envoie un lien de réinitialisation par email.
-     * Réponse générique : ne révèle pas si l'email existe (sécurité).
-     */
     #[Route('/forgot-password', name: 'api_auth_forgot_password', methods: ['POST'])]
+    #[OA\Post(
+        summary: 'Mot de passe oublié',
+        description: 'Envoie un email avec un lien de réinitialisation (token signé HMAC, valide 1h). Réponse identique que le compte existe ou non (anti-énumération).',
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['email'],
+                properties: [
+                    new OA\Property(property: 'email', type: 'string', format: 'email', example: 'client@example.com')
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Message générique envoyé (ne révèle pas si le compte existe)'),
+            new OA\Response(response: 400, description: 'Email invalide')
+        ]
+    )]
     public function forgotPassword(
         Request $request,
         UtilisateurRepository $utilisateurRepository,
@@ -232,21 +254,19 @@ class AuthApiController extends AbstractController
 
         $user = $utilisateurRepository->findOneBy(['email' => $email]);
 
-        // On traite silencieusement si l'email n'existe pas (anti-énumération)
         if ($user) {
-            $expiry = time() + 3600; // valide 1 heure
+            $expiry = time() + 3600;
             $secret = $this->getParameter('kernel.secret');
             $token = base64_encode(
                 $user->getEmail() . '|' . $expiry . '|' .
                 hash('sha256', $user->getEmail() . $expiry . $secret)
             );
 
-            // Lien vers le front-end SPA (ou Twig en fallback)
             $resetUrl = rtrim($frontendUrl, '/') . '/reinitialiser-mot-de-passe?token=' . urlencode($token);
 
             try {
                 $emailMsg = (new Email())
-                    ->from('noreply@viteetgourmand.fr')
+                    ->from('maxnabil2ait@gmail.com')
                     ->to($user->getEmail())
                     ->subject('Réinitialisation de votre mot de passe - Vite & Gourmand')
                     ->html(
@@ -262,23 +282,34 @@ class AuthApiController extends AbstractController
                     );
                 $mailer->send($emailMsg);
             } catch (\Exception $e) {
-                // Mail non bloquant
             }
         }
 
-        // Message identique qu'il y ait ou non un compte (sécurité)
         return $this->json([
             'success' => true,
             'message' => 'Si un compte existe avec cet email, un lien de réinitialisation a été envoyé.'
         ]);
     }
 
-    /**
-     * POST /api/auth/reset-password
-     * Corps : { "token": "...", "password": "..." }
-     * Valide le token HMAC-SHA256, vérifie l'expiration, et met à jour le mot de passe.
-     */
     #[Route('/reset-password', name: 'api_auth_reset_password', methods: ['POST'])]
+    #[OA\Post(
+        summary: 'Réinitialiser le mot de passe',
+        description: 'Valide le token reçu par email et met à jour le mot de passe.',
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['token', 'password'],
+                properties: [
+                    new OA\Property(property: 'token', type: 'string', description: 'Token reçu par email'),
+                    new OA\Property(property: 'password', type: 'string', description: 'Nouveau mot de passe (mêmes règles que l\'inscription)', example: 'NouveauMdp2024!')
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Mot de passe réinitialisé avec succès'),
+            new OA\Response(response: 400, description: 'Token invalide / expiré / mot de passe trop faible')
+        ]
+    )]
     public function resetPassword(
         Request $request,
         UtilisateurRepository $utilisateurRepository,
@@ -296,7 +327,6 @@ class AuthApiController extends AbstractController
             ], Response::HTTP_BAD_REQUEST);
         }
 
-        // Décoder le token base64
         $decoded = base64_decode($tokenRaw, true);
         if ($decoded === false) {
             return $this->json(['success' => false, 'message' => 'Token invalide.'], Response::HTTP_BAD_REQUEST);
@@ -309,7 +339,6 @@ class AuthApiController extends AbstractController
 
         [$email, $expiry, $hash] = $parts;
 
-        // Vérifier l'expiration
         if (time() > (int) $expiry) {
             return $this->json([
                 'success' => false,
@@ -317,20 +346,17 @@ class AuthApiController extends AbstractController
             ], Response::HTTP_BAD_REQUEST);
         }
 
-        // Vérifier la signature HMAC
         $secret = $this->getParameter('kernel.secret');
         $expectedHash = hash('sha256', $email . $expiry . $secret);
         if (!hash_equals($expectedHash, $hash)) {
             return $this->json(['success' => false, 'message' => 'Token invalide.'], Response::HTTP_BAD_REQUEST);
         }
 
-        // Trouver l'utilisateur
         $user = $utilisateurRepository->findOneBy(['email' => $email]);
         if (!$user) {
             return $this->json(['success' => false, 'message' => 'Token invalide.'], Response::HTTP_BAD_REQUEST);
         }
 
-        // Valider la politique de mot de passe
         if (!$this->validatePassword($newPassword)) {
             return $this->json([
                 'success' => false,
@@ -338,7 +364,6 @@ class AuthApiController extends AbstractController
             ], Response::HTTP_BAD_REQUEST);
         }
 
-        // Mettre à jour le mot de passe
         $user->setPassword($passwordHasher->hashPassword($user, $newPassword));
         $em->flush();
 
@@ -348,10 +373,6 @@ class AuthApiController extends AbstractController
         ]);
     }
 
-    /**
-     * Sérialise un utilisateur pour la réponse JSON.
-     * SÉCURITÉ : ne jamais exposer le mot de passe hashé.
-     */
     private function serializeUser(Utilisateur $user): array
     {
         return [
@@ -368,19 +389,11 @@ class AuthApiController extends AbstractController
         ];
     }
 
-    /**
-     * Sanitise une entrée utilisateur.
-     * Protection contre XSS et injection.
-     */
     private function sanitizeInput(string $input): string
     {
         return htmlspecialchars(strip_tags(trim($input)), ENT_QUOTES, 'UTF-8');
     }
 
-    /**
-     * Valide la politique de mot de passe.
-     * Conforme RGPD/CNIL : 10 car. min, 1 maj, 1 min, 1 chiffre, 1 spécial
-     */
     private function validatePassword(string $password): bool
     {
         return strlen($password) >= 10

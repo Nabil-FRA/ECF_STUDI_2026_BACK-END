@@ -180,7 +180,7 @@ class CommandeCrudController extends AbstractCrudController
     private function envoyerMail(string $to, string $subject, string $htmlBody): void
     {
         $email = (new Email())
-            ->from('noreply@viteetgourmand.fr')
+            ->from('maxnabil2ait@gmail.com')
             ->to($to)
             ->subject($subject)
             ->html($htmlBody);

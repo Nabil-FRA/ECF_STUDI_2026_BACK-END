@@ -4,6 +4,7 @@ namespace App\Controller\Api;
 
 use App\Repository\AvisRepository;
 use App\Repository\HoraireRepository;
+use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -12,22 +13,18 @@ use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Routing\Attribute\Route;
 
-/**
- * Controller API pour les données publiques.
- * 
- * SÉCURITÉ :
- * - Validation et sanitisation des entrées contact (strip_tags + trim)
- * - Sorties JSON brutes (pas de htmlspecialchars — JSON n'est pas du HTML)
- * - htmlspecialchars() conservé uniquement dans les corps d'e-mails HTML
- * - Seuls les avis validés sont exposés
- */
 #[Route('/api')]
+#[OA\Tag(name: 'Public')]
 class PublicApiController extends AbstractController
 {
-    /**
-     * GET /api/avis - Liste des avis validés uniquement
-     */
     #[Route('/avis', name: 'api_avis', methods: ['GET'])]
+    #[OA\Get(
+        summary: 'Liste des avis validés',
+        description: 'Retourne tous les avis clients dont le statut est « validé ». Trié par ID décroissant.',
+        responses: [
+            new OA\Response(response: 200, description: 'Liste des avis validés')
+        ]
+    )]
     public function avis(AvisRepository $avisRepository): JsonResponse
     {
         $avisValides = $avisRepository->findBy(
@@ -40,7 +37,6 @@ class PublicApiController extends AbstractController
             $result[] = [
                 'id' => $avis->getId(),
                 'note' => $avis->getNote(),
-                // JSON n'est pas du HTML — pas de htmlspecialchars() sur les sorties
                 'description' => $avis->getDescription() ?? '',
                 'prenom_utilisateur' => $avis->getUtilisateur()
                     ? $avis->getUtilisateur()->getPrenom()
@@ -51,10 +47,14 @@ class PublicApiController extends AbstractController
         return $this->json($result);
     }
 
-    /**
-     * GET /api/horaires - Horaires d'ouverture
-     */
     #[Route('/horaires', name: 'api_horaires', methods: ['GET'])]
+    #[OA\Get(
+        summary: 'Horaires d\'ouverture',
+        description: 'Retourne les horaires d\'ouverture du restaurant pour chaque jour de la semaine.',
+        responses: [
+            new OA\Response(response: 200, description: 'Liste des horaires par jour')
+        ]
+    )]
     public function horaires(HoraireRepository $horaireRepository): JsonResponse
     {
         $horaires = [];
@@ -70,16 +70,28 @@ class PublicApiController extends AbstractController
         return $this->json($horaires);
     }
 
-    /**
-     * POST /api/contact - Envoi du formulaire de contact
-     * Corps : { "email": "...", "titre": "...", "description": "..." }
-     * 
-     * SÉCURITÉ :
-     * - Validation email stricte
-     * - Sanitisation de toutes les entrées
-     * - Protection anti-spam basique (honeypot côté frontend)
-     */
     #[Route('/contact', name: 'api_contact', methods: ['POST'])]
+    #[OA\Post(
+        summary: 'Envoyer un message de contact',
+        description: 'Envoie un email de contact au restaurant. Inclut un champ honeypot anti-spam.',
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['email', 'titre', 'description'],
+                properties: [
+                    new OA\Property(property: 'email', type: 'string', format: 'email', example: 'visiteur@example.com'),
+                    new OA\Property(property: 'titre', type: 'string', maxLength: 200, example: 'Demande de renseignement'),
+                    new OA\Property(property: 'description', type: 'string', maxLength: 5000, example: 'Bonjour, je souhaite organiser un événement...'),
+                    new OA\Property(property: 'website', type: 'string', description: 'Champ honeypot anti-spam — laisser vide')
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Message envoyé avec succès'),
+            new OA\Response(response: 400, description: 'Champs manquants / email invalide / texte trop long'),
+            new OA\Response(response: 500, description: 'Erreur lors de l\'envoi de l\'email')
+        ]
+    )]
     public function contact(Request $request, MailerInterface $mailer): JsonResponse
     {
         $data = json_decode($request->getContent(), true);
@@ -88,14 +100,11 @@ class PublicApiController extends AbstractController
         $titre = strip_tags(trim($data['titre'] ?? ''));
         $description = strip_tags(trim($data['description'] ?? ''));
 
-        // Champ honeypot (anti-spam) - si rempli, c'est un bot
         $honeypot = $data['website'] ?? '';
         if (!empty($honeypot)) {
-            // Retourner succès pour ne pas informer le bot
             return $this->json(['success' => true, 'message' => 'Message envoyé.']);
         }
 
-        // Validation
         if (empty($emailVisiteur) || empty($titre) || empty($description)) {
             return $this->json([
                 'success' => false,
@@ -110,7 +119,6 @@ class PublicApiController extends AbstractController
             ], Response::HTTP_BAD_REQUEST);
         }
 
-        // Limiter la longueur (protection déni de service)
         if (mb_strlen($titre) > 200 || mb_strlen($description) > 5000) {
             return $this->json([
                 'success' => false,
@@ -120,7 +128,7 @@ class PublicApiController extends AbstractController
 
         try {
             $email = (new Email())
-                ->from('noreply@viteetgourmand.fr')
+                ->from('maxnabil2ait@gmail.com')
                 ->to('contact@viteetgourmand.fr')
                 ->replyTo($emailVisiteur)
                 ->subject('[Contact API] ' . $titre)

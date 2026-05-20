@@ -38,9 +38,11 @@ public function __construct(UserPasswordHasherInterface $hasher, MongoDbService 
         $roleAdmin = (new Role())->setLibelle('administrateur');
         $roleEmploye = (new Role())->setLibelle('employe');
         $roleUtilisateur = (new Role())->setLibelle('utilisateur');
+        $roleDesactive = (new Role())->setLibelle('desactive');
         $manager->persist($roleAdmin);
         $manager->persist($roleEmploye);
         $manager->persist($roleUtilisateur);
+        $manager->persist($roleDesactive);
 
         // ============================================================
         // 2. THÈMES
@@ -102,7 +104,7 @@ public function __construct(UserPasswordHasherInterface $hasher, MongoDbService 
         }
 
         // ============================================================
-        // 6. UTILISATEURS (Mot de passe : Password1!)
+        // 6. UTILISATEURS
         // ============================================================
         $admin = (new Utilisateur())
             ->setEmail('jose@viteetgourmand.fr')
@@ -112,7 +114,7 @@ public function __construct(UserPasswordHasherInterface $hasher, MongoDbService 
             ->setAdressePostale('15 rue de la Restauration, 33000 Bordeaux')
             ->setRole($roleAdmin);
         $admin->setRoles(['ROLE_ADMIN']);
-        $admin->setPassword($this->hasher->hashPassword($admin, 'Password1!'));
+        $admin->setPassword($this->hasher->hashPassword($admin, 'J0se!Patron#2026'));
         $manager->persist($admin);
 
         $employe = (new Utilisateur())
@@ -123,7 +125,7 @@ public function __construct(UserPasswordHasherInterface $hasher, MongoDbService 
             ->setAdressePostale('10 rue Sainte-Catherine, 33000 Bordeaux')
             ->setRole($roleEmploye);
         $employe->setRoles(['ROLE_EMPLOYE']);
-        $employe->setPassword($this->hasher->hashPassword($employe, 'Password1!'));
+        $employe->setPassword($this->hasher->hashPassword($employe, 'Jul!eMartin#33'));
         $manager->persist($employe);
 
         $employe2 = (new Utilisateur())
@@ -133,8 +135,8 @@ public function __construct(UserPasswordHasherInterface $hasher, MongoDbService 
             ->setVille('Bordeaux')->setPays('France')
             ->setAdressePostale('22 cours Victor Hugo, 33000 Bordeaux')
             ->setRole($roleEmploye);
-        $employe->setRoles(['ROLE_EMPLOYE']);
-        $employe2->setPassword($this->hasher->hashPassword($employe2, 'Password1!'));
+        $employe2->setRoles(['ROLE_EMPLOYE']);
+        $employe2->setPassword($this->hasher->hashPassword($employe2, 'M@rcLeroy*2026'));
         $manager->persist($employe2);
 
         $client1 = (new Utilisateur())
@@ -144,7 +146,7 @@ public function __construct(UserPasswordHasherInterface $hasher, MongoDbService 
             ->setVille('Mérignac')->setPays('France')
             ->setAdressePostale('5 avenue de la République, 33700 Mérignac')
             ->setRole($roleUtilisateur);
-        $client1->setPassword($this->hasher->hashPassword($client1, 'Password1!'));
+        $client1->setPassword($this->hasher->hashPassword($client1, 'Je@nDupont!2026'));
         $manager->persist($client1);
 
         $client2 = (new Utilisateur())
@@ -154,7 +156,7 @@ public function __construct(UserPasswordHasherInterface $hasher, MongoDbService 
             ->setVille('Pessac')->setPays('France')
             ->setAdressePostale('12 rue Jean Jaurès, 33600 Pessac')
             ->setRole($roleUtilisateur);
-        $client2->setPassword($this->hasher->hashPassword($client2, 'Password1!'));
+        $client2->setPassword($this->hasher->hashPassword($client2, 'S0phie#Bernard26'));
         $manager->persist($client2);
 
         $client3 = (new Utilisateur())
@@ -164,7 +166,7 @@ public function __construct(UserPasswordHasherInterface $hasher, MongoDbService 
             ->setVille('Talence')->setPays('France')
             ->setAdressePostale('8 avenue de la Libération, 33400 Talence')
             ->setRole($roleUtilisateur);
-        $client3->setPassword($this->hasher->hashPassword($client3, 'Password1!'));
+        $client3->setPassword($this->hasher->hashPassword($client3, 'P!erre_Moreau33'));
         $manager->persist($client3);
 
         $client4 = (new Utilisateur())
@@ -174,7 +176,7 @@ public function __construct(UserPasswordHasherInterface $hasher, MongoDbService 
             ->setVille('Bordeaux')->setPays('France')
             ->setAdressePostale('30 quai des Chartrons, 33000 Bordeaux')
             ->setRole($roleUtilisateur);
-        $client4->setPassword($this->hasher->hashPassword($client4, 'Password1!'));
+        $client4->setPassword($this->hasher->hashPassword($client4, 'Mar!ePetit#2026'));
         $manager->persist($client4);
 
         $client5 = (new Utilisateur())
@@ -184,7 +186,7 @@ public function __construct(UserPasswordHasherInterface $hasher, MongoDbService 
             ->setVille('Libourne')->setPays('France')
             ->setAdressePostale('3 place Abel Surchamp, 33500 Libourne')
             ->setRole($roleUtilisateur);
-        $client5->setPassword($this->hasher->hashPassword($client5, 'Password1!'));
+        $client5->setPassword($this->hasher->hashPassword($client5, 'Luc@sRoux*2026'));
         $manager->persist($client5);
 
         // ============================================================

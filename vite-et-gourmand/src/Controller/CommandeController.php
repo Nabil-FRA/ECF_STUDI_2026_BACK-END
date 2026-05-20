@@ -110,7 +110,7 @@ class CommandeController extends AbstractController
             // Mail de confirmation de commande
             $total = $prixMenu + $prixLivraison;
             $email = (new Email())
-                ->from('noreply@viteetgourmand.fr')
+                ->from('maxnabil2ait@gmail.com')
                 ->to($user->getEmail())
                 ->subject('Confirmation de commande ' . $numeroCommande)
                 ->html(

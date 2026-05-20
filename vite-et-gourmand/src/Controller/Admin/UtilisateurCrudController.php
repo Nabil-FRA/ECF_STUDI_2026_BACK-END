@@ -125,7 +125,7 @@ class UtilisateurCrudController extends AbstractCrudController
         // Mail de notification si c'est un employé
         if ($entityInstance->getRole() && $entityInstance->getRole()->getLibelle() === 'employe') {
             $email = (new Email())
-                ->from('noreply@viteetgourmand.fr')
+                ->from('maxnabil2ait@gmail.com')
                 ->to($entityInstance->getEmail())
                 ->subject('Votre compte employé Vite & Gourmand a été créé')
                 ->html(

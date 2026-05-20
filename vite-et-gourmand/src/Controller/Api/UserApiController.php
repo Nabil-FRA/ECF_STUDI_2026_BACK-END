@@ -8,6 +8,7 @@ use App\Repository\MenuRepository;
 use App\Security\ApiTokenAuthenticator;
 use App\Service\MongoDbService;
 use Doctrine\ORM\EntityManagerInterface;
+use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -18,23 +19,21 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
-/**
- * Controller API pour l'espace utilisateur (routes protégées).
- * 
- * SÉCURITÉ :
- * - Toutes les routes nécessitent ROLE_USER
- * - Vérification propriétaire pour chaque commande
- * - Sanitisation des entrées
- * - Validation métier (statut commande, etc.)
- */
 #[Route('/api/user')]
 #[IsGranted('ROLE_USER')]
+#[OA\Tag(name: 'Utilisateur')]
 class UserApiController extends AbstractController
 {
-    /**
-     * GET /api/user/profile - Profil de l'utilisateur connecté
-     */
     #[Route('/profile', name: 'api_user_profile', methods: ['GET'])]
+    #[OA\Get(
+        summary: 'Mon profil',
+        description: 'Retourne les informations du profil de l\'utilisateur connecté.',
+        security: [['Bearer' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Profil utilisateur'),
+            new OA\Response(response: 401, description: 'Non authentifié')
+        ]
+    )]
     public function profile(): JsonResponse
     {
         $user = $this->getUser();
@@ -54,10 +53,29 @@ class UserApiController extends AbstractController
         ]);
     }
 
-    /**
-     * PUT /api/user/profile - Modifier le profil
-     */
     #[Route('/profile', name: 'api_user_profile_update', methods: ['PUT'])]
+    #[OA\Put(
+        summary: 'Modifier mon profil',
+        description: 'Met à jour les informations personnelles. Seuls les champs envoyés sont modifiés.',
+        security: [['Bearer' => []]],
+        requestBody: new OA\RequestBody(
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: 'nom', type: 'string', example: 'Dupont'),
+                    new OA\Property(property: 'prenom', type: 'string', example: 'Jean'),
+                    new OA\Property(property: 'telephone', type: 'string', example: '06 12 34 56 78'),
+                    new OA\Property(property: 'ville', type: 'string', example: 'Bordeaux'),
+                    new OA\Property(property: 'pays', type: 'string', example: 'France'),
+                    new OA\Property(property: 'adresse_postale', type: 'string', example: '12 rue de la Paix, 33000 Bordeaux')
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Profil mis à jour'),
+            new OA\Response(response: 400, description: 'Téléphone invalide'),
+            new OA\Response(response: 401, description: 'Non authentifié')
+        ]
+    )]
     public function updateProfile(Request $request, EntityManagerInterface $em): JsonResponse
     {
         $user = $this->getUser();
@@ -91,10 +109,16 @@ class UserApiController extends AbstractController
         return $this->json(['success' => true, 'message' => 'Profil mis à jour.']);
     }
 
-    /**
-     * GET /api/user/commandes - Mes commandes
-     */
     #[Route('/commandes', name: 'api_user_commandes', methods: ['GET'])]
+    #[OA\Get(
+        summary: 'Mes commandes',
+        description: 'Retourne toutes les commandes de l\'utilisateur connecté, triées par date décroissante.',
+        security: [['Bearer' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Liste des commandes'),
+            new OA\Response(response: 401, description: 'Non authentifié')
+        ]
+    )]
     public function commandes(): JsonResponse
     {
         $user = $this->getUser();
@@ -104,19 +128,27 @@ class UserApiController extends AbstractController
             $result[] = $this->serializeCommande($commande);
         }
 
-        // Trier par date décroissante
         usort($result, fn($a, $b) => strcmp($b['date_commande'] ?? '', $a['date_commande'] ?? ''));
 
         return $this->json(['success' => true, 'commandes' => $result]);
     }
 
-    /**
-     * GET /api/user/commandes/{id} - Détail d'une commande
-     */
     #[Route('/commandes/{id}', name: 'api_user_commande_detail', methods: ['GET'])]
+    #[OA\Get(
+        summary: 'Détail d\'une commande',
+        description: 'Retourne le détail d\'une commande avec son suivi (historique des statuts depuis MongoDB).',
+        security: [['Bearer' => []]],
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Détail de la commande avec suivi'),
+            new OA\Response(response: 403, description: 'Commande d\'un autre utilisateur'),
+            new OA\Response(response: 404, description: 'Commande introuvable')
+        ]
+    )]
     public function commandeDetail(Commande $commande, MongoDbService $mongoDbService): JsonResponse
     {
-        // SÉCURITÉ : vérification du propriétaire
         if ($commande->getUtilisateur() !== $this->getUser()) {
             return $this->json(['success' => false, 'message' => 'Accès interdit.'], 403);
         }
@@ -129,10 +161,32 @@ class UserApiController extends AbstractController
         return $this->json(['success' => true, 'commande' => $data]);
     }
 
-    /**
-     * POST /api/user/commandes - Créer une commande
-     */
     #[Route('/commandes', name: 'api_user_commande_create', methods: ['POST'])]
+    #[OA\Post(
+        summary: 'Créer une commande',
+        description: 'Crée une nouvelle commande. Le prix est calculé automatiquement (réduction 10% si +5 personnes au-dessus du minimum). Livraison gratuite à Bordeaux, sinon 5€ + 0.59€/km. Zone : Gironde uniquement (CP 33xxx).',
+        security: [['Bearer' => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['menu_id', 'nombre_personne', 'date_prestation', 'lieu_prestation', 'heure_livraison'],
+                properties: [
+                    new OA\Property(property: 'menu_id', type: 'integer', example: 1),
+                    new OA\Property(property: 'nombre_personne', type: 'integer', example: 15),
+                    new OA\Property(property: 'date_prestation', type: 'string', format: 'date', example: '2026-07-15'),
+                    new OA\Property(property: 'lieu_prestation', type: 'string', example: '25 rue Sainte-Catherine, 33000 Bordeaux'),
+                    new OA\Property(property: 'heure_livraison', type: 'string', example: '12:00'),
+                    new OA\Property(property: 'pret_materiel', type: 'boolean', example: true),
+                    new OA\Property(property: 'distance_km', type: 'integer', description: 'Distance en km (0 = Bordeaux)', example: 0)
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 201, description: 'Commande créée avec succès'),
+            new OA\Response(response: 400, description: 'Validation échouée (champs manquants, minimum personnes, date passée, hors zone)'),
+            new OA\Response(response: 404, description: 'Menu introuvable')
+        ]
+    )]
     public function createCommande(
         Request $request,
         MenuRepository $menuRepository,
@@ -151,7 +205,6 @@ class UserApiController extends AbstractController
         $pretMateriel = (bool) ($data['pret_materiel'] ?? false);
         $distanceKm = (int) ($data['distance_km'] ?? 0);
 
-        // Validation
         if ($menuId <= 0 || $nbPersonnes <= 0 || empty($datePrestation) || empty($lieuPrestation) || empty($heureLivraison)) {
             return $this->json([
                 'success' => false,
@@ -175,16 +228,24 @@ class UserApiController extends AbstractController
             return $this->json(['success' => false, 'message' => 'Ce menu n\'est plus disponible.'], 400);
         }
 
-        // Validation date (doit être dans le futur)
         $datePrest = \DateTime::createFromFormat('Y-m-d', $datePrestation);
         if (!$datePrest || $datePrest < new \DateTime('today')) {
             return $this->json(['success' => false, 'message' => 'Date de prestation invalide.'], 400);
         }
 
-        // Calcul du prix
+        if (preg_match('/\b([\d]{5})\b/', $lieuPrestation, $matches)) {
+            $cpExtrait = $matches[1];
+            if (!str_starts_with($cpExtrait, '33')) {
+                return $this->json([
+                    'success' => false,
+                    'message' => 'Nous livrons uniquement en Gironde (département 33). Votre adresse est hors de notre zone de livraison.'
+                ], 400);
+            }
+        }
+
         $prixMenu = $menu->getPrixParPersonne() * $nbPersonnes;
         if ($nbPersonnes >= $menu->getNombrePersonneMinimum() + 5) {
-            $prixMenu *= 0.9; // Réduction 10%
+            $prixMenu *= 0.9;
         }
 
         $lieuLower = strtolower($lieuPrestation);
@@ -214,7 +275,6 @@ class UserApiController extends AbstractController
         $em->persist($commande);
         $em->flush();
 
-        // Sync MongoDB
         $mongoDbService->syncCommande([
             'numero_commande' => $numeroCommande,
             'menu_titre' => $menu->getTitre(),
@@ -228,11 +288,10 @@ class UserApiController extends AbstractController
         ]);
         $mongoDbService->ajouterSuivi($numeroCommande, 'en cours');
 
-        // Email de confirmation
         try {
             $total = $prixMenu + $prixLivraison;
             $emailMsg = (new Email())
-                ->from('noreply@viteetgourmand.fr')
+                ->from('maxnabil2ait@gmail.com')
                 ->to($user->getEmail())
                 ->subject('Confirmation de commande ' . $numeroCommande)
                 ->html(
@@ -251,12 +310,32 @@ class UserApiController extends AbstractController
         ], 201);
     }
 
-    /**
-     * PUT /api/user/commandes/{id} - Modifier une commande (seulement si statut "en cours")
-     * Corps : { date_prestation, lieu_prestation, heure_livraison, pret_materiel, distance_km, nombre_personne }
-     * Le menu NE PEUT PAS être modifié.
-     */
     #[Route('/commandes/{id}', name: 'api_user_commande_update', methods: ['PUT'])]
+    #[OA\Put(
+        summary: 'Modifier une commande',
+        description: 'Modifie une commande existante. Uniquement possible si le statut est « en cours ». Le menu ne peut pas être changé.',
+        security: [['Bearer' => []]],
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))
+        ],
+        requestBody: new OA\RequestBody(
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: 'nombre_personne', type: 'integer', example: 20),
+                    new OA\Property(property: 'date_prestation', type: 'string', format: 'date', example: '2026-08-01'),
+                    new OA\Property(property: 'lieu_prestation', type: 'string', example: '10 place Gambetta, 33000 Bordeaux'),
+                    new OA\Property(property: 'heure_livraison', type: 'string', example: '13:00'),
+                    new OA\Property(property: 'pret_materiel', type: 'boolean'),
+                    new OA\Property(property: 'distance_km', type: 'integer')
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Commande modifiée'),
+            new OA\Response(response: 400, description: 'Modification impossible (statut != en cours) / validation échouée'),
+            new OA\Response(response: 403, description: 'Commande d\'un autre utilisateur')
+        ]
+    )]
     public function updateCommande(
         Commande $commande,
         Request $request,
@@ -277,7 +356,6 @@ class UserApiController extends AbstractController
         $data = json_decode($request->getContent(), true);
         $menu = $commande->getMenu();
 
-        // Nombre de personnes
         if (isset($data['nombre_personne'])) {
             $nbPersonnes = (int) $data['nombre_personne'];
             if ($nbPersonnes < $menu->getNombrePersonneMinimum()) {
@@ -288,7 +366,6 @@ class UserApiController extends AbstractController
             }
             $commande->setNombrePersonne($nbPersonnes);
 
-            // Recalcul du prix
             $prixMenu = $menu->getPrixParPersonne() * $nbPersonnes;
             if ($nbPersonnes >= $menu->getNombrePersonneMinimum() + 5) {
                 $prixMenu *= 0.9;
@@ -296,7 +373,6 @@ class UserApiController extends AbstractController
             $commande->setPrixMenu($prixMenu);
         }
 
-        // Date de prestation
         if (isset($data['date_prestation'])) {
             $datePrest = \DateTime::createFromFormat('Y-m-d', $this->sanitize($data['date_prestation']));
             if (!$datePrest || $datePrest < new \DateTime('today')) {
@@ -305,7 +381,6 @@ class UserApiController extends AbstractController
             $commande->setDatePrestation($datePrest);
         }
 
-        // Lieu de prestation + recalcul livraison
         if (isset($data['lieu_prestation'])) {
             $lieu = $this->sanitize($data['lieu_prestation']);
             $commande->setLieuPrestation($lieu);
@@ -327,7 +402,6 @@ class UserApiController extends AbstractController
 
         $em->flush();
 
-        // Sync MongoDB
         $mongoDbService->syncCommande([
             'numero_commande' => $commande->getNumeroCommande(),
             'menu_titre'      => $menu->getTitre(),
@@ -347,10 +421,20 @@ class UserApiController extends AbstractController
         ]);
     }
 
-    /**
-     * PUT /api/user/commandes/{id}/annuler - Annuler une commande
-     */
     #[Route('/commandes/{id}/annuler', name: 'api_user_commande_annuler', methods: ['PUT'])]
+    #[OA\Put(
+        summary: 'Annuler une commande',
+        description: 'Annule une commande. Uniquement possible si le statut est « en cours ». La quantité restante du menu est restaurée.',
+        security: [['Bearer' => []]],
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Commande annulée'),
+            new OA\Response(response: 400, description: 'Annulation impossible (statut != en cours)'),
+            new OA\Response(response: 403, description: 'Commande d\'un autre utilisateur')
+        ]
+    )]
     public function annulerCommande(
         Commande $commande,
         EntityManagerInterface $em,
@@ -388,10 +472,30 @@ class UserApiController extends AbstractController
         return $this->json(['success' => true, 'message' => 'Commande annulée.']);
     }
 
-    /**
-     * POST /api/user/commandes/{id}/avis - Donner un avis
-     */
     #[Route('/commandes/{id}/avis', name: 'api_user_avis', methods: ['POST'])]
+    #[OA\Post(
+        summary: 'Donner un avis',
+        description: 'Dépose un avis sur une commande terminée. Un seul avis par commande. L\'avis est soumis à validation par un employé/admin.',
+        security: [['Bearer' => []]],
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', required: true, description: 'ID de la commande', schema: new OA\Schema(type: 'integer'))
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['note'],
+                properties: [
+                    new OA\Property(property: 'note', type: 'integer', minimum: 1, maximum: 5, example: 4),
+                    new OA\Property(property: 'description', type: 'string', maxLength: 2000, example: 'Excellent service, plats délicieux !')
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 201, description: 'Avis déposé (statut : en attente de validation)'),
+            new OA\Response(response: 400, description: 'Commande non terminée / avis déjà déposé / note invalide'),
+            new OA\Response(response: 403, description: 'Commande d\'un autre utilisateur')
+        ]
+    )]
     public function donnerAvis(
         Commande $commande,
         Request $request,
@@ -405,7 +509,6 @@ class UserApiController extends AbstractController
             return $this->json(['success' => false, 'message' => 'Avis uniquement sur commande terminée.'], 400);
         }
 
-        // Vérifier avis existant
         foreach ($commande->getAvis() as $existing) {
             if ($existing->getUtilisateur() === $this->getUser()) {
                 return $this->json(['success' => false, 'message' => 'Vous avez déjà donné un avis.'], 400);
@@ -437,10 +540,27 @@ class UserApiController extends AbstractController
         return $this->json(['success' => true, 'message' => 'Merci pour votre avis !'], 201);
     }
 
-    /**
-     * PUT /api/user/password - Changer son mot de passe
-     */
     #[Route('/password', name: 'api_user_password', methods: ['PUT'])]
+    #[OA\Put(
+        summary: 'Changer mon mot de passe',
+        description: 'Change le mot de passe. Nécessite le mot de passe actuel. Le nouveau doit respecter la politique de sécurité.',
+        security: [['Bearer' => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['current_password', 'new_password'],
+                properties: [
+                    new OA\Property(property: 'current_password', type: 'string', example: 'AncienMdp2024!'),
+                    new OA\Property(property: 'new_password', type: 'string', description: 'Min 10 car., 1 maj, 1 min, 1 chiffre, 1 spécial', example: 'NouveauMdp2024!')
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Mot de passe modifié'),
+            new OA\Response(response: 400, description: 'Champs manquants / mot de passe trop faible'),
+            new OA\Response(response: 401, description: 'Mot de passe actuel incorrect')
+        ]
+    )]
     public function changePassword(
         Request $request,
         EntityManagerInterface $em,
@@ -460,7 +580,6 @@ class UserApiController extends AbstractController
             return $this->json(['success' => false, 'message' => 'Mot de passe actuel incorrect.'], 401);
         }
 
-        // Validation mot de passe fort (10 chars min + majuscule + minuscule + chiffre + spécial)
         if (strlen($newPassword) < 10
             || !preg_match('/[A-Z]/', $newPassword)
             || !preg_match('/[a-z]/', $newPassword)
@@ -479,15 +598,20 @@ class UserApiController extends AbstractController
         return $this->json(['success' => true, 'message' => 'Mot de passe modifié.']);
     }
 
-    /**
-     * DELETE /api/user/account - Supprimer son compte
-     */
     #[Route('/account', name: 'api_user_delete_account', methods: ['DELETE'])]
+    #[OA\Delete(
+        summary: 'Supprimer mon compte',
+        description: 'Supprime définitivement le compte, ses commandes et ses avis. Impossible s\'il reste des commandes actives (ni annulées, ni terminées).',
+        security: [['Bearer' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Compte supprimé'),
+            new OA\Response(response: 400, description: 'Commandes en cours empêchent la suppression')
+        ]
+    )]
     public function deleteAccount(EntityManagerInterface $em): JsonResponse
     {
         $user = $this->getUser();
 
-        // Vérifier qu'il n'y a pas de commandes actives (non annulées / non terminées)
         $commandesActives = $user->getCommandes()->filter(function($c) {
             return !in_array($c->getStatut(), ['annulée', 'terminée']);
         });
@@ -499,7 +623,10 @@ class UserApiController extends AbstractController
             ], 400);
         }
 
-        // Supprimer les commandes terminées/annulées puis le compte
+        foreach ($user->getAvis() as $avi) {
+            $em->remove($avi);
+        }
+
         foreach ($user->getCommandes() as $commande) {
             $em->remove($commande);
         }
@@ -530,13 +657,12 @@ class UserApiController extends AbstractController
                 'id' => $commande->getMenu()->getId(),
                 'titre' => $commande->getMenu()->getTitre(),
             ] : null,
+            'avis_depose' => $commande->getAvis()->count() > 0,
         ];
     }
 
     private function sanitize(string $input): string
     {
-        // strip_tags() seulement — pas de htmlspecialchars() avant stockage DB
-        // (les entités HTML ne doivent pas être stockées dans une BDD JSON-first)
         return strip_tags(trim($input));
     }
 }

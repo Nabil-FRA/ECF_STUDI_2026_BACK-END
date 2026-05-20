@@ -1,0 +1,33 @@
+nelmio_api_doc:
+    html_config:
+        assets_mode: cdn
+    documentation:
+        info:
+            title: 'Vite & Gourmand - API'
+            description: |
+                API REST du site de traiteur événementiel Vite & Gourmand.
+
+                ## Authentification
+                L'API utilise un système de **token Bearer**. Pour les endpoints protégés,
+                ajoutez le header : `Authorization: Bearer <votre_token>`
+
+                Le token est obtenu via `POST /api/auth/login` ou `POST /api/auth/register`.
+
+                ## Rôles
+                - **Public** : Consultation des menus, avis, horaires, contact
+                - **ROLE_USER** : Gestion du profil, commandes, avis
+                - **ROLE_EMPLOYE** : Gestion des commandes, menus, horaires, avis
+                - **ROLE_ADMIN** : Administration complète (utilisateurs, statistiques, etc.)
+            version: '1.0.0'
+        components:
+            securitySchemes:
+                Bearer:
+                    type: http
+                    scheme: bearer
+                    bearerFormat: 'HMAC-SHA256'
+                    description: 'Token obtenu via POST /api/auth/login'
+        security:
+            - Bearer: []
+    areas:
+        path_patterns:
+            - ^/api

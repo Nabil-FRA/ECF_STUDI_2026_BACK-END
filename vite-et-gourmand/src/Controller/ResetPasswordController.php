@@ -40,7 +40,7 @@ class ResetPasswordController extends AbstractController
 
                 // Envoyer le mail
                 $email = (new Email())
-                    ->from('noreply@viteetgourmand.fr')
+                    ->from('maxnabil2ait@gmail.com')
                     ->to($user->getEmail())
                     ->subject('Réinitialisation de votre mot de passe - Vite & Gourmand')
                     ->html(

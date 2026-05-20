@@ -30,8 +30,9 @@ class SecurityHeadersListener
         $response = $event->getResponse();
         $request = $event->getRequest();
 
-        // Appliquer uniquement sur les routes API
-        if (!str_starts_with($request->getPathInfo(), '/api/')) {
+        // Appliquer uniquement sur les routes API (sauf la doc Swagger)
+        $path = $request->getPathInfo();
+        if (!str_starts_with($path, '/api/') || str_starts_with($path, '/api/doc')) {
             return;
         }
 

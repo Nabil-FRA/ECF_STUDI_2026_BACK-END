@@ -7,30 +7,33 @@ use App\Repository\AllergeneRepository;
 use App\Repository\MenuRepository;
 use App\Repository\RegimeRepository;
 use App\Repository\ThemeRepository;
+use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
 
-/**
- * Controller API pour les menus (endpoints publics).
- * 
- * SÉCURITÉ :
- * - Toutes les sorties sont échappées (htmlspecialchars)
- * - Validation des paramètres de requête (cast typé)
- * - Pas d'exposition de données sensibles
- */
 #[Route('/api')]
+#[OA\Tag(name: 'Menus (public)')]
 class MenuApiController extends AbstractController
 {
-    /**
-     * GET /api/menus - Liste des menus avec filtres dynamiques
-     * Paramètres query : regime, theme, prix_min, prix_max, nb_personnes
-     */
     #[Route('/menus', name: 'api_menus_list', methods: ['GET'])]
+    #[OA\Get(
+        summary: 'Liste des menus',
+        description: 'Retourne tous les menus avec possibilité de filtrer par régime, thème, prix et nombre de personnes.',
+        parameters: [
+            new OA\Parameter(name: 'regime', in: 'query', required: false, description: 'ID du régime alimentaire', schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'theme', in: 'query', required: false, description: 'ID du thème', schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'prix_min', in: 'query', required: false, description: 'Prix minimum par personne', schema: new OA\Schema(type: 'number')),
+            new OA\Parameter(name: 'prix_max', in: 'query', required: false, description: 'Prix maximum par personne', schema: new OA\Schema(type: 'number')),
+            new OA\Parameter(name: 'nb_personnes', in: 'query', required: false, description: 'Nombre de personnes (filtre sur le minimum requis)', schema: new OA\Schema(type: 'integer'))
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Liste des menus filtrés')
+        ]
+    )]
     public function list(Request $request, MenuRepository $menuRepository): JsonResponse
     {
-        // Cast typé des paramètres (protection injection)
         $regimeId = $request->query->getInt('regime', 0) ?: null;
         $themeId = $request->query->getInt('theme', 0) ?: null;
         $prixMin = $request->query->get('prix_min') !== null ? (float) $request->query->get('prix_min') : null;
@@ -63,15 +66,22 @@ class MenuApiController extends AbstractController
         return $this->json($result);
     }
 
-    /**
-     * GET /api/menus/{id} - Détail d'un menu avec plats et allergènes
-     */
     #[Route('/menus/{id}', name: 'api_menus_detail', methods: ['GET'])]
+    #[OA\Get(
+        summary: 'Détail d\'un menu',
+        description: 'Retourne le détail complet d\'un menu : informations, plats avec allergènes, images et conditions.',
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', required: true, description: 'ID du menu', schema: new OA\Schema(type: 'integer'))
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Détail du menu avec plats, allergènes et images'),
+            new OA\Response(response: 404, description: 'Menu introuvable')
+        ]
+    )]
     public function detail(Menu $menu): JsonResponse
     {
         $data = $this->serializeMenu($menu);
 
-        // Ajout des plats avec allergènes
         $plats = [];
         foreach ($menu->getPlats() as $plat) {
             $allergenes = [];
@@ -91,7 +101,6 @@ class MenuApiController extends AbstractController
         }
         $data['plats'] = $plats;
 
-        // Ajout des images
         $images = [];
         foreach ($menu->getMenuImages() as $img) {
             $images[] = [
@@ -101,16 +110,19 @@ class MenuApiController extends AbstractController
         }
         $data['images'] = $images;
 
-        // Conditions
         $data['conditions'] = $this->escape($menu->getConditions() ?? '');
 
         return $this->json($data);
     }
 
-    /**
-     * GET /api/themes - Liste des thèmes
-     */
     #[Route('/themes', name: 'api_themes', methods: ['GET'])]
+    #[OA\Get(
+        summary: 'Liste des thèmes',
+        description: 'Retourne tous les thèmes de menus disponibles.',
+        responses: [
+            new OA\Response(response: 200, description: 'Liste des thèmes')
+        ]
+    )]
     public function themes(ThemeRepository $themeRepository): JsonResponse
     {
         $themes = [];
@@ -123,10 +135,14 @@ class MenuApiController extends AbstractController
         return $this->json($themes);
     }
 
-    /**
-     * GET /api/regimes - Liste des régimes alimentaires
-     */
     #[Route('/regimes', name: 'api_regimes', methods: ['GET'])]
+    #[OA\Get(
+        summary: 'Liste des régimes alimentaires',
+        description: 'Retourne tous les régimes alimentaires disponibles (végétarien, sans gluten, etc.).',
+        responses: [
+            new OA\Response(response: 200, description: 'Liste des régimes')
+        ]
+    )]
     public function regimes(RegimeRepository $regimeRepository): JsonResponse
     {
         $regimes = [];
@@ -139,10 +155,14 @@ class MenuApiController extends AbstractController
         return $this->json($regimes);
     }
 
-    /**
-     * GET /api/allergenes - Liste des allergènes
-     */
     #[Route('/allergenes', name: 'api_allergenes', methods: ['GET'])]
+    #[OA\Get(
+        summary: 'Liste des allergènes',
+        description: 'Retourne tous les allergènes référencés (gluten, lactose, arachides, etc.).',
+        responses: [
+            new OA\Response(response: 200, description: 'Liste des allergènes')
+        ]
+    )]
     public function allergenes(AllergeneRepository $allergeneRepository): JsonResponse
     {
         $allergenes = [];
@@ -155,13 +175,8 @@ class MenuApiController extends AbstractController
         return $this->json($allergenes);
     }
 
-    /**
-     * Sérialise un menu pour le JSON.
-     * SÉCURITÉ : échappement de toutes les chaînes
-     */
     private function serializeMenu(Menu $menu): array
     {
-        // Image principale : première image du menu (si disponible)
         $firstImage = $menu->getMenuImages()->first();
         $imagePrincipale = $firstImage ? $firstImage->getUrlImage() : null;
 
@@ -184,10 +199,6 @@ class MenuApiController extends AbstractController
         ];
     }
 
-    /**
-     * Retourne la valeur brute pour la sortie JSON.
-     * JSON n'est pas du HTML — pas de htmlspecialchars() sur les sorties JSON.
-     */
     private function escape(string $value): string
     {
         return $value;

@@ -42,7 +42,7 @@ class RegistrationController extends AbstractController
 
             // Mail de bienvenue
             $email = (new Email())
-                ->from('noreply@viteetgourmand.fr')
+                ->from('maxnabil2ait@gmail.com')
                 ->to($user->getEmail())
                 ->subject('Bienvenue chez Vite & Gourmand !')
                 ->html(

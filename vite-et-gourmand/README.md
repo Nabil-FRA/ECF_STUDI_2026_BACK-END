@@ -93,14 +93,47 @@ vite-et-gourmand/
 
 ## Installation et demarrage
 
-### 1. Cloner le depot
+> **Important** : le `docker-compose.yml` orchestre a la fois le back-end ET le front-end.
+> Les deux depots doivent etre clones en respectant l'arborescence ci-dessous.
+
+### 1. Cloner les deux depots
+
+```
+Projet/
+├── ECF_STUDI_2026_FRONT-END/          <-- depot front-end
+└── Backend/
+    └── ECF_STUDI_2026_BACK-END/
+        └── vite-et-gourmand/           <-- depot back-end (vous etes ici)
+```
 
 ```bash
-git clone https://github.com/Nabil-FRA/ECF_STUDI_2026_BACK-END.git
+mkdir Projet && cd Projet
+
+# Front-end
+git clone https://github.com/Nabil-FRA/ECF_STUDI_2026_FRONT-END.git
+
+# Back-end
+mkdir -p Backend/ECF_STUDI_2026_BACK-END
+cd Backend/ECF_STUDI_2026_BACK-END
+git clone https://github.com/Nabil-FRA/ECF_STUDI_2026_BACK-END.git vite-et-gourmand
 cd vite-et-gourmand
 ```
 
-### 2. Creer le fichier de configuration locale
+### 2. Configurer l'URL API dans le front-end
+
+Dans le fichier `../../../ECF_STUDI_2026_FRONT-END/JS/api.js`, ligne 16, remplacer :
+
+```js
+var API_BASE_URL = 'https://vite-et-gourmand-ecf-nar-7b5ab7722b1a.herokuapp.com/api';
+```
+
+Par :
+
+```js
+var API_BASE_URL = 'http://localhost:8080/api';
+```
+
+### 3. Creer le fichier de configuration locale
 
 ```bash
 cp .env .env.local
@@ -108,7 +141,7 @@ cp .env .env.local
 
 Modifier `.env.local` avec vos valeurs (voir section [Variables d'environnement](#variables-denvironnement)).
 
-### 3. Demarrer les conteneurs Docker
+### 4. Demarrer les conteneurs Docker
 
 ```bash
 docker-compose up -d --build
@@ -116,7 +149,7 @@ docker-compose up -d --build
 
 Attendre que tous les services soient demarres (30 a 60 secondes la premiere fois).
 
-### 4. Creer la base de donnees et charger les donnees
+### 5. Creer la base de donnees et charger les donnees
 
 ```bash
 # Creer le schema PostgreSQL
@@ -130,9 +163,14 @@ docker exec vg_app php bin/console doctrine:fixtures:load --no-interaction
 docker exec vg_app php bin/console cache:clear
 ```
 
-### 5. Verifier que tout fonctionne
+### 6. Verifier que tout fonctionne
 
-Ouvrir http://localhost:8080/api/menus — vous devez voir la liste des menus en JSON.
+| Service | URL | Description |
+|---|---|---|
+| Front-end | http://localhost:3000 | Site web Vite & Gourmand |
+| API Back-end | http://localhost:8080/api/menus | Liste des menus (JSON) |
+| Adminer | http://localhost:8081 | Interface base de donnees |
+| Mailhog | http://localhost:8025 | Emails de test |
 
 ---
 

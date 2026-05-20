@@ -53,6 +53,9 @@ security:
     # CONTRÔLE D'ACCÈS
     # ================================
     access_control:
+        # Documentation API Swagger
+        - { path: ^/api/doc, roles: PUBLIC_ACCESS }
+
         # Routes API publiques (pas de token requis)
         - { path: ^/api/auth, roles: PUBLIC_ACCESS }
         - { path: ^/api/menus, roles: PUBLIC_ACCESS, methods: [GET] }

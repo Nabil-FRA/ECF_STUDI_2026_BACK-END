@@ -1,13 +1,38 @@
 # ============================================
 # Docker Compose - Vite & Gourmand
 # ============================================
-# Usage:
+# Services :
+#   frontend  → http://localhost:3000   (HTML/CSS/JS — Nginx)
+#   nginx     → http://localhost:8080   (Symfony API — Nginx + PHP-FPM)
+#   database  → localhost:5432          (PostgreSQL 15)
+#   mailhog   → http://localhost:8025   (Interface mail de test)
+#   adminer   → http://localhost:8081   (Interface base de données)
+#
+# Note : MongoDB Atlas (cloud) est utilisé en dev ET en production.
+#        Aucun conteneur MongoDB local — connexion directe à Atlas via MONGODB_URL.
+#
+# Usage :
 #   docker-compose up -d --build    # Démarrer tous les services
 #   docker-compose down             # Arrêter tous les services
-#   docker-compose logs -f app      # Voir les logs de l'app
+#   docker-compose logs -f frontend # Logs front-end
+#   docker-compose logs -f app      # Logs back-end
 # ============================================
 
 services:
+  # ============================================
+  # FRONT-END STATIQUE (Nginx + HTML/CSS/JS)
+  # ============================================
+  frontend:
+    build:
+      context: ../../../ECF_STUDI_2026_FRONT-END
+      dockerfile: Dockerfile
+    container_name: vg_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    networks:
+      - vg_network
+
   # ============================================
   # APPLICATION PHP (Symfony)
   # ============================================
@@ -28,13 +53,12 @@ services:
       - vg_network
     depends_on:
       - database
-      - mongodb
     environment:
       - APP_ENV=${APP_ENV:-dev}
       - APP_SECRET=${APP_SECRET:-changeme123456789}
       - DATABASE_URL=postgresql://vg_user:vg_password@database:5432/vite_et_gourmand?serverVersion=15&charset=utf8
-      - MONGODB_URL=mongodb://mongodb:27017
-      - MONGODB_DB=vite_et_gourmand
+      - MONGODB_URL=${MONGODB_URL}
+      - MONGODB_DB=${MONGODB_DB:-vite_et_gourmand}
       - MAILER_DSN=smtp://mailhog:1025
 
   # ============================================
@@ -74,22 +98,6 @@ services:
       - vg_network
 
   # ============================================
-  # BASE DE DONNÉES MONGODB
-  # ============================================
-  mongodb:
-    image: mongo:6.0
-    container_name: vg_mongodb
-    restart: unless-stopped
-    ports:
-      - "27017:27017"
-    environment:
-      MONGO_INITDB_DATABASE: vite_et_gourmand
-    volumes:
-      - mongodb_data:/data/db
-    networks:
-      - vg_network
-
-  # ============================================
   # MAILHOG (Serveur mail de test)
   # ============================================
   mailhog:
@@ -121,8 +129,6 @@ services:
 # ============================================
 volumes:
   postgres_data:
-    driver: local
-  mongodb_data:
     driver: local
 
 # ============================================
