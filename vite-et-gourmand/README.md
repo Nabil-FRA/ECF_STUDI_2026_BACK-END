@@ -82,7 +82,7 @@ vite-et-gourmand/
 
 ---
 
-## Prerequis
+## Prerequis:
 
 - **Docker Desktop** (Windows/Mac) ou **Docker Engine** (Linux)
 - **Docker Compose** v2+
@@ -91,7 +91,7 @@ vite-et-gourmand/
 
 ---
 
-## Installation et demarrage
+## Installation et demarrage:
 
 > **Important** : le `docker-compose.yml` orchestre a la fois le back-end ET le front-end.
 > Les deux depots doivent être clonés en respectant l'arborescence ci-dessous.
@@ -119,7 +119,7 @@ git clone https://github.com/Nabil-FRA/ECF_STUDI_2026_BACK-END.git vite-et-gourm
 cd vite-et-gourmand
 ```
 
-### 2. Configurer l'URL API dans le front-end
+### 2. Configurer l'URL API dans le front-end:
 
 Dans le fichier `../../../ECF_STUDI_2026_FRONT-END/JS/api.js`, ligne 16, remplacer :
 
@@ -133,7 +133,7 @@ Par :
 var API_BASE_URL = 'http://localhost:8080/api';
 ```
 
-### 3. Creer le fichier de configuration locale
+### 3. Creer le fichier de configuration locale:
 
 ```bash
 cp .env .env.local
@@ -194,7 +194,7 @@ CORS_ALLOW_ORIGIN='^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$'
 FRONTEND_URL=http://localhost:5173
 ```
 
-> Le fichier `.env.local` n'est pas versionne (`.gitignore`). Il contient les secrets locaux.
+> Le fichier `.env.local` n'est pas versionné (`.gitignore`). Il contient les secrets locaux.
 
 ---
 
@@ -233,7 +233,7 @@ en cours --> accepte --> en preparation --> en cours de livraison
 
 ---
 
-## API REST — Endpoints
+## API REST — Endpoints:
 
 ### Authentification (`/api/auth`) — Public
 
