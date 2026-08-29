@@ -348,14 +348,28 @@ Cas testes :
 
 Apres chargement des fixtures, les comptes suivants sont disponibles :
 
+Tous ces mots de passe respectent la politique RGPD/CNIL du projet (10 car. min., 1 maj., 1 min., 1 chiffre, 1 special).
+
 | Email | Mot de passe | Role |
 |---|---|---|
-| `jose@viteetgourmand.fr` | `Password1!` | Administrateur |
-| `julie@viteetgourmand.fr` | `Password1!` | Employe |
-| `jean.dupont@gmail.com` | `Password1!` | Client (commande terminee + avis) |
-| `marie.martin@gmail.com` | `Password1!` | Client |
-| `pierre.durand@gmail.com` | `Password1!` | Client |
-| `sophie.bernard@gmail.com` | `Password1!` | Client |
+| `jose@viteetgourmand.fr` | `QYxNxJ56HtSyFd@C` | Administrateur |
+| `julie@viteetgourmand.fr` | `i9fXPNdekBs%ZvEY` | Employe |
+| `marc@viteetgourmand.fr` | `M@rcLeroy*2026` | Employe |
+| `jean.dupont@gmail.com` | `a6quM%N3jAxtRQ!W` | Client (commande terminee + avis) |
+| `sophie.bernard@gmail.com` | `S0phie#Bernard26` | Client |
+| `pierre.moreau@gmail.com` | `P!erre_Moreau33` | Client |
+| `marie.petit@gmail.com` | `Mar!ePetit#2026` | Client |
+| `lucas.roux@gmail.com` | `Luc@sRoux*2026` | Client |
+
+### Modifier le mot de passe d'un compte existant
+
+Sans recharger les fixtures (qui purgent toute la base, commandes et avis compris) :
+
+```bash
+php bin/console app:reset-password jose@viteetgourmand.fr 'NouveauMdp@2026!'
+```
+
+La commande refuse tout mot de passe qui ne respecte pas la politique.
 
 ---
 
@@ -379,7 +393,7 @@ Apres chargement des fixtures, les comptes suivants sont disponibles :
 
 ### Connexion EasyAdmin
 
-Compte : `jose@viteetgourmand.fr` / `Password1!`
+Compte : `jose@viteetgourmand.fr` / `QYxNxJ56HtSyFd@C`
 
 ---
 
