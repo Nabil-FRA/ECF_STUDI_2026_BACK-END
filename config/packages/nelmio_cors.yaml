@@ -1,0 +1,25 @@
+# config/packages/nelmio_cors.yaml
+# ==========================================
+# SÉCURITÉ CORS (Cross-Origin Resource Sharing)
+# ==========================================
+# Contrôle quels domaines peuvent appeler l'API.
+# IMPORTANT : remplacer les origines par vos vrais domaines !
+nelmio_cors:
+    defaults:
+        # Ne PAS utiliser '*' en production !
+        origin_regex: true
+        allow_origin:
+            - '%env(CORS_ALLOW_ORIGIN)%'
+        allow_methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+        allow_headers: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-CSRF-Token']
+        expose_headers: ['Link']
+        max_age: 3600
+    paths:
+        '^/api/':
+            origin_regex: true
+            allow_origin:
+                - '%env(CORS_ALLOW_ORIGIN)%'
+            allow_methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+            allow_headers: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-CSRF-Token']
+            max_age: 3600
+            allow_credentials: false
