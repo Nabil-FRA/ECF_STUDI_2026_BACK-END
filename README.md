@@ -45,7 +45,7 @@ Application de traiteur en ligne permettant la gestion des menus, des commandes,
 ## Architecture
 
 ```
-vite-et-gourmand/
+ECF_STUDI_2026_BACK-END/
 ├── src/
 │   ├── Controller/
 │   │   ├── Api/                        # API REST (JSON)
@@ -102,9 +102,12 @@ vite-et-gourmand/
 Projet/
 ├── ECF_STUDI_2026_FRONT-END/          <-- depot front-end
 └── Backend/
-    └── ECF_STUDI_2026_BACK-END/
-        └── vite-et-gourmand/           <-- depot back-end (vous etes ici)
+    └── ECF_STUDI_2026_BACK-END/       <-- depot back-end (vous etes ici)
 ```
+
+> Cette arborescence n'est pas decorative : le service `frontend` du
+> `docker-compose.yml` se construit depuis `../../ECF_STUDI_2026_FRONT-END`.
+> Un niveau de dossier en trop et le build echoue.
 
 ```bash
 mkdir Projet && cd Projet
@@ -113,15 +116,14 @@ mkdir Projet && cd Projet
 git clone https://github.com/Nabil-FRA/ECF_STUDI_2026_FRONT-END.git
 
 # Back-end
-mkdir -p Backend/ECF_STUDI_2026_BACK-END
+mkdir Backend
+git clone https://github.com/Nabil-FRA/ECF_STUDI_2026_BACK-END.git Backend/ECF_STUDI_2026_BACK-END
 cd Backend/ECF_STUDI_2026_BACK-END
-git clone https://github.com/Nabil-FRA/ECF_STUDI_2026_BACK-END.git vite-et-gourmand
-cd vite-et-gourmand
 ```
 
 ### 2. Configurer l'URL API dans le front-end:
 
-Dans le fichier `../../../ECF_STUDI_2026_FRONT-END/JS/api.js`, ligne 16, remplacer :
+Dans le fichier `../../ECF_STUDI_2026_FRONT-END/JS/api.js`, ligne 16, remplacer :
 
 ```js
 var API_BASE_URL = 'https://vite-et-gourmand-ecf-nar-7b5ab7722b1a.herokuapp.com/api';
