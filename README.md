@@ -133,7 +133,7 @@ Par :
 var API_BASE_URL = 'http://localhost:8080/api';
 ```
 
-### 3. Creer le fichier de configuration locale:
+### 3. Créer le fichier de configuration locale:
 
 ```bash
 cp .env .env.local
@@ -141,7 +141,7 @@ cp .env .env.local
 
 Modifier `.env.local` avec vos valeurs (voir section [Variables d'environnement](#variables-denvironnement)).
 
-### 4. Demarrer les conteneurs Docker
+### 4. Démarrer les conteneurs Docker
 
 ```bash
 docker-compose up -d --build
@@ -149,7 +149,7 @@ docker-compose up -d --build
 
 Attendre que tous les services soient demarres (30 a 60 secondes la premiere fois).
 
-### 5. Creer la base de donnees et charger les donnees
+### 5. Créer la base de donnees et charger les donnees
 
 ```bash
 # Creer le schema PostgreSQL
