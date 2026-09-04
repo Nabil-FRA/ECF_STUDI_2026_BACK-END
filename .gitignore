@@ -18,7 +18,3 @@
 /public/assets/
 /assets/vendor/
 ###< symfony/asset-mapper ###
-
-###> outils locaux ###
-/.claude/
-###< outils locaux ###
