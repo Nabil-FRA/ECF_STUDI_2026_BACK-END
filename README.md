@@ -428,8 +428,9 @@ docker-compose down -v
 
 ## Regles metier principales
 
-- **Prix de livraison** : 2 EUR/km au-dela de 10 km, gratuit en dessous
-- **Reduction** : 10 % si la commande depasse 10 personnes
+- **Zone de livraison** : Gironde uniquement (codes postaux 33xxx), distance plafonnee a 150 km
+- **Prix de livraison** : offerte a Bordeaux (CP 33000, 33100, 33200, 33300, 33800), sinon forfait de 5 EUR + 0,59 EUR/km. Hors zone gratuite, une distance nulle ou non renseignee ne rend pas la livraison gratuite : le forfait reste du
+- **Reduction** : 10 % sur le prix du menu des que le nombre de personnes atteint le minimum du menu + 5
 - **Pret de materiel** : email automatique lors du passage en "en attente du retour de materiel" avec delai de 10 jours ouvres et penalite de 600 EUR
 - **Annulation** : mode de contact et motif obligatoires pour toute annulation par un employe
 - **Modification commande** : uniquement possible si le statut est "en cours"
