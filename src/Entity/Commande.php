@@ -40,6 +40,14 @@ class Commande
     #[ORM\Column]
     private ?float $prix_livraison = null;
 
+    /**
+     * Distance en kilomètres depuis Bordeaux, saisie à la commande.
+     * Conservée pour pouvoir recalculer le prix de livraison à l'identique
+     * lors d'une modification.
+     */
+    #[ORM\Column(nullable: true)]
+    private ?int $distance_km = null;
+
     #[ORM\Column(length: 50)]
     private ?string $statut = null;
 
@@ -173,6 +181,26 @@ class Commande
         $this->prix_livraison = $prix_livraison;
 
         return $this;
+    }
+
+    public function getDistanceKm(): ?int
+    {
+        return $this->distance_km;
+    }
+
+    public function setDistanceKm(?int $distance_km): static
+    {
+        $this->distance_km = $distance_km;
+
+        return $this;
+    }
+
+    /**
+     * Montant total facturé au client (menu + livraison).
+     */
+    public function getPrixTotal(): float
+    {
+        return round(($this->prix_menu ?? 0.0) + ($this->prix_livraison ?? 0.0), 2);
     }
 
     public function getStatut(): ?string

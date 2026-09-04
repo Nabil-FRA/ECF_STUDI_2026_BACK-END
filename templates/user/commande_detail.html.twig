@@ -77,7 +77,7 @@
             <tr>
                 <td style="padding: 10px 0; color: #666; font-weight: bold;">Total</td>
                 <td style="padding: 10px 0; font-weight: bold; font-size: 1.1em;">
-                    {{ (commande.prixMenu + commande.prixLivraison)|number_format(2, ',', ' ') }} €
+                    {{ commande.prixTotal|number_format(2, ',', ' ') }} €
                 </td>
             </tr>
         </table>

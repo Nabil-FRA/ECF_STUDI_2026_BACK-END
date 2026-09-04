@@ -513,7 +513,7 @@ public function __construct(UserPasswordHasherInterface $hasher, MongoDbService 
         $cmd2 = (new Commande())->setNumeroCommande('CMD-2026-002')
             ->setDateCommande(new \DateTime('2026-01-15'))->setDatePrestation(new \DateTime('2026-01-25'))
             ->setLieuPrestation('12 rue Jean Jaurès, 33600 Pessac')->setHeureLivraison('12:30')
-            ->setPrixMenu(84.00)->setNombrePersonne(3)->setPrixLivraison(5.59)
+            ->setPrixMenu(84.00)->setNombrePersonne(3)->setDistanceKm(7)->setPrixLivraison(9.13)
             ->setStatut('terminée')->setPretMateriel(false)->setRestitutionMateriel(false)
             ->setUtilisateur($client2)->setMenu($menuClassique);
         $manager->persist($cmd2);
@@ -521,7 +521,7 @@ public function __construct(UserPasswordHasherInterface $hasher, MongoDbService 
         $cmd3 = (new Commande())->setNumeroCommande('CMD-2026-003')
             ->setDateCommande(new \DateTime('2026-02-01'))->setDatePrestation(new \DateTime('2026-02-10'))
             ->setLieuPrestation('8 avenue de la Libération, 33400 Talence')->setHeureLivraison('19:30')
-            ->setPrixMenu(128.00)->setNombrePersonne(4)->setPrixLivraison(5.59)
+            ->setPrixMenu(128.00)->setNombrePersonne(4)->setDistanceKm(5)->setPrixLivraison(7.95)
             ->setStatut('terminée')->setPretMateriel(false)->setRestitutionMateriel(false)
             ->setUtilisateur($client3)->setMenu($menuVege);
         $manager->persist($cmd3);
@@ -537,7 +537,7 @@ public function __construct(UserPasswordHasherInterface $hasher, MongoDbService 
         $cmd5 = (new Commande())->setNumeroCommande('CMD-2026-005')
             ->setDateCommande(new \DateTime('2026-03-25'))->setDatePrestation(new \DateTime('2026-04-20'))
             ->setLieuPrestation('5 avenue de la République, 33700 Mérignac')->setHeureLivraison('12:00')
-            ->setPrixMenu(342.00)->setNombrePersonne(9)->setPrixLivraison(5.59)
+            ->setPrixMenu(342.00)->setNombrePersonne(9)->setDistanceKm(9)->setPrixLivraison(10.31)
             ->setStatut('en préparation')->setPretMateriel(false)->setRestitutionMateriel(false)
             ->setUtilisateur($client1)->setMenu($menuPaques);
         $manager->persist($cmd5);
@@ -545,7 +545,7 @@ public function __construct(UserPasswordHasherInterface $hasher, MongoDbService 
         $cmd6 = (new Commande())->setNumeroCommande('CMD-2026-006')
             ->setDateCommande(new \DateTime('2026-03-28'))->setDatePrestation(new \DateTime('2026-04-05'))
             ->setLieuPrestation('3 place Abel Surchamp, 33500 Libourne')->setHeureLivraison('13:00')
-            ->setPrixMenu(120.00)->setNombrePersonne(4)->setPrixLivraison(15.34)
+            ->setPrixMenu(120.00)->setNombrePersonne(4)->setDistanceKm(30)->setPrixLivraison(22.70)
             ->setStatut('en cours de livraison')->setPretMateriel(false)->setRestitutionMateriel(false)
             ->setUtilisateur($client5)->setMenu($menuVegan);
         $manager->persist($cmd6);
@@ -553,7 +553,7 @@ public function __construct(UserPasswordHasherInterface $hasher, MongoDbService 
         $cmd7 = (new Commande())->setNumeroCommande('CMD-2026-007')
             ->setDateCommande(new \DateTime('2026-04-01'))->setDatePrestation(new \DateTime('2026-04-13'))
             ->setLieuPrestation('12 rue Jean Jaurès, 33600 Pessac')->setHeureLivraison('10:00')
-            ->setPrixMenu(150.00)->setNombrePersonne(6)->setPrixLivraison(5.59)
+            ->setPrixMenu(150.00)->setNombrePersonne(6)->setDistanceKm(7)->setPrixLivraison(9.13)
             ->setStatut('accepté')->setPretMateriel(false)->setRestitutionMateriel(false)
             ->setUtilisateur($client2)->setMenu($menuBrunch);
         $manager->persist($cmd7);
@@ -595,12 +595,12 @@ public function __construct(UserPasswordHasherInterface $hasher, MongoDbService 
 
     $commandesMongo = [
         ['numero_commande' => 'CMD-2026-001', 'menu_titre' => 'Menu Réveillon de Noël', 'prix_total' => 270.00, 'date_commande' => '2025-12-10', 'statut' => 'terminée'],
-        ['numero_commande' => 'CMD-2026-002', 'menu_titre' => 'Menu Classique Tradition', 'prix_total' => 84.00, 'date_commande' => '2026-01-15', 'statut' => 'terminée'],
-        ['numero_commande' => 'CMD-2026-003', 'menu_titre' => 'Menu Végétarien Découverte', 'prix_total' => 128.00, 'date_commande' => '2026-02-01', 'statut' => 'terminée'],
+        ['numero_commande' => 'CMD-2026-002', 'menu_titre' => 'Menu Classique Tradition', 'prix_total' => 93.13, 'date_commande' => '2026-01-15', 'statut' => 'terminée'],
+        ['numero_commande' => 'CMD-2026-003', 'menu_titre' => 'Menu Végétarien Découverte', 'prix_total' => 135.95, 'date_commande' => '2026-02-01', 'statut' => 'terminée'],
         ['numero_commande' => 'CMD-2026-004', 'menu_titre' => 'Menu Évènement Prestige', 'prix_total' => 550.00, 'date_commande' => '2026-03-20', 'statut' => 'accepté'],
-        ['numero_commande' => 'CMD-2026-005', 'menu_titre' => 'Menu Pâques Gourmand', 'prix_total' => 342.00, 'date_commande' => '2026-03-25', 'statut' => 'en préparation'],
-        ['numero_commande' => 'CMD-2026-006', 'menu_titre' => 'Menu Végan Bien-être', 'prix_total' => 120.00, 'date_commande' => '2026-03-28', 'statut' => 'en cours de livraison'],
-        ['numero_commande' => 'CMD-2026-007', 'menu_titre' => 'Brunch du Dimanche', 'prix_total' => 150.00, 'date_commande' => '2026-04-01', 'statut' => 'accepté'],
+        ['numero_commande' => 'CMD-2026-005', 'menu_titre' => 'Menu Pâques Gourmand', 'prix_total' => 352.31, 'date_commande' => '2026-03-25', 'statut' => 'en préparation'],
+        ['numero_commande' => 'CMD-2026-006', 'menu_titre' => 'Menu Végan Bien-être', 'prix_total' => 142.70, 'date_commande' => '2026-03-28', 'statut' => 'en cours de livraison'],
+        ['numero_commande' => 'CMD-2026-007', 'menu_titre' => 'Brunch du Dimanche', 'prix_total' => 159.13, 'date_commande' => '2026-04-01', 'statut' => 'accepté'],
         ['numero_commande' => 'CMD-2026-008', 'menu_titre' => 'Menu Sans Gluten Saveurs', 'prix_total' => 70.00, 'date_commande' => '2026-02-14', 'statut' => 'terminée'],
     ];
 

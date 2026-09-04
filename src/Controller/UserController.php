@@ -8,8 +8,10 @@ use App\Form\AvisFormType;
 use App\Form\CommandeFormType;
 use App\Form\ProfilFormType;
 use App\Service\MongoDbService;
+use App\Service\TarificationService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\Form\FormError;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -66,8 +68,12 @@ class UserController extends AbstractController
     }
 
     #[Route('/commande/{id}/modifier', name: 'app_user_commande_modifier')]
-    public function commandeModifier(Commande $commande, Request $request, EntityManagerInterface $em): Response
-    {
+    public function commandeModifier(
+        Commande $commande,
+        Request $request,
+        EntityManagerInterface $em,
+        TarificationService $tarification
+    ): Response {
         if ($commande->getUtilisateur() !== $this->getUser()) {
             throw $this->createAccessDeniedException();
         }
@@ -77,23 +83,50 @@ class UserController extends AbstractController
             return $this->redirectToRoute('app_user_commande_detail', ['id' => $commande->getId()]);
         }
 
-        $form = $this->createForm(CommandeFormType::class, $commande);
+        // Le menu d'une commande existante n'est pas modifiable : le champ est
+        // désactivé côté formulaire pour que la valeur soumise soit ignorée.
+        $form = $this->createForm(CommandeFormType::class, $commande, [
+            'menu_verrouille' => true,
+        ]);
         $form->handleRequest($request);
 
-        if ($form->isSubmitted() && $form->isValid()) {
-            $menu = $commande->getMenu();
-            $nbPersonnes = $commande->getNombrePersonne();
-
-            $prixMenu = $menu->getPrixParPersonne() * $nbPersonnes;
-            if ($nbPersonnes >= $menu->getNombrePersonneMinimum() + 5) {
-                $prixMenu = $prixMenu * 0.9;
+        if ($form->isSubmitted()) {
+            $minimum = $commande->getMenu()->getNombrePersonneMinimum();
+            if ((int) $commande->getNombrePersonne() < $minimum) {
+                $form->get('nombre_personne')->addError(new FormError(
+                    'Le nombre minimum de personnes pour ce menu est de ' . $minimum . '.'
+                ));
             }
 
-            $lieuPrestation = strtolower($commande->getLieuPrestation());
-            $prixLivraison = str_contains($lieuPrestation, 'bordeaux') ? 0.0 : 5.0;
+            if (($lieu = (string) $commande->getLieuPrestation()) !== '') {
+                if ($tarification->estHorsZoneDeLivraison($lieu)) {
+                    $form->get('lieu_prestation')->addError(new FormError(
+                        'Nous livrons uniquement en Gironde (codes postaux 33xxx).'
+                    ));
+                }
 
-            $commande->setPrixMenu($prixMenu);
-            $commande->setPrixLivraison($prixLivraison);
+                if ($tarification->distanceRequise($lieu, $commande->getDistanceKm())) {
+                    $form->get('distance_km')->addError(new FormError(
+                        'Indiquez la distance depuis Bordeaux : la livraison hors Bordeaux est facturée au kilomètre.'
+                    ));
+                }
+            }
+        }
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            if ($tarification->estZoneGratuite($commande->getLieuPrestation())) {
+                $commande->setDistanceKm(null);
+            }
+
+            $prix = $tarification->calculer(
+                $commande->getMenu(),
+                $commande->getNombrePersonne(),
+                $commande->getLieuPrestation(),
+                $commande->getDistanceKm()
+            );
+
+            $commande->setPrixMenu($prix['prix_menu']);
+            $commande->setPrixLivraison($prix['prix_livraison']);
 
             $em->flush();
             $this->addFlash('success', 'Votre commande a été modifiée.');
@@ -133,7 +166,7 @@ class UserController extends AbstractController
             'nombre_personne' => $commande->getNombrePersonne(),
             'prix_menu' => $commande->getPrixMenu(),
             'prix_livraison' => $commande->getPrixLivraison(),
-            'prix_total' => $commande->getPrixMenu() + $commande->getPrixLivraison(),
+            'prix_total' => $commande->getPrixTotal(),
             'date_commande' => $commande->getDateCommande() ? $commande->getDateCommande()->format('Y-m-d') : date('Y-m-d'),
             'statut' => 'annulée',
             'client_email' => $commande->getUtilisateur()->getEmail(),
