@@ -7,6 +7,7 @@ use App\Entity\Commande;
 use App\Repository\MenuRepository;
 use App\Security\ApiTokenAuthenticator;
 use App\Service\MongoDbService;
+use App\Service\TarificationService;
 use Doctrine\ORM\EntityManagerInterface;
 use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -164,7 +165,7 @@ class UserApiController extends AbstractController
     #[Route('/commandes', name: 'api_user_commande_create', methods: ['POST'])]
     #[OA\Post(
         summary: 'Créer une commande',
-        description: 'Crée une nouvelle commande. Le prix est calculé automatiquement (réduction 10% si +5 personnes au-dessus du minimum). Livraison gratuite à Bordeaux, sinon 5€ + 0.59€/km. Zone : Gironde uniquement (CP 33xxx).',
+        description: 'Crée une nouvelle commande. Le prix est calculé automatiquement (réduction 10% si +5 personnes au-dessus du minimum). Livraison gratuite à Bordeaux, sinon forfait 5€ + 0.59€/km (le forfait reste dû si la distance n\'est pas fournie). Zone : Gironde uniquement (CP 33xxx).',
         security: [['Bearer' => []]],
         requestBody: new OA\RequestBody(
             required: true,
@@ -177,7 +178,7 @@ class UserApiController extends AbstractController
                     new OA\Property(property: 'lieu_prestation', type: 'string', example: '25 rue Sainte-Catherine, 33000 Bordeaux'),
                     new OA\Property(property: 'heure_livraison', type: 'string', example: '12:00'),
                     new OA\Property(property: 'pret_materiel', type: 'boolean', example: true),
-                    new OA\Property(property: 'distance_km', type: 'integer', description: 'Distance en km (0 = Bordeaux)', example: 0)
+                    new OA\Property(property: 'distance_km', type: 'integer', description: 'Distance depuis Bordeaux en km. Ignorée pour une adresse bordelaise, requise ailleurs pour la part kilométrique.', example: 12)
                 ]
             )
         ),
@@ -192,7 +193,8 @@ class UserApiController extends AbstractController
         MenuRepository $menuRepository,
         EntityManagerInterface $em,
         MongoDbService $mongoDbService,
-        MailerInterface $mailer
+        MailerInterface $mailer,
+        TarificationService $tarification
     ): JsonResponse {
         $user = $this->getUser();
         $data = json_decode($request->getContent(), true);
@@ -233,23 +235,21 @@ class UserApiController extends AbstractController
             return $this->json(['success' => false, 'message' => 'Date de prestation invalide.'], 400);
         }
 
-        if (preg_match('/\b([\d]{5})\b/', $lieuPrestation, $matches)) {
-            $cpExtrait = $matches[1];
-            if (!str_starts_with($cpExtrait, '33')) {
-                return $this->json([
-                    'success' => false,
-                    'message' => 'Nous livrons uniquement en Gironde (département 33). Votre adresse est hors de notre zone de livraison.'
-                ], 400);
-            }
+        if ($tarification->estHorsZoneDeLivraison($lieuPrestation)) {
+            return $this->json([
+                'success' => false,
+                'message' => 'Nous livrons uniquement en Gironde (département 33). Votre adresse est hors de notre zone de livraison.'
+            ], 400);
         }
 
-        $prixMenu = $menu->getPrixParPersonne() * $nbPersonnes;
-        if ($nbPersonnes >= $menu->getNombrePersonneMinimum() + 5) {
-            $prixMenu *= 0.9;
+        // La distance ne sert qu'en dehors de la zone gratuite.
+        if ($tarification->estZoneGratuite($lieuPrestation)) {
+            $distanceKm = null;
         }
 
-        $lieuLower = strtolower($lieuPrestation);
-        $prixLivraison = (str_contains($lieuLower, 'bordeaux') || $distanceKm === 0) ? 0.0 : 5.0 + (0.59 * $distanceKm);
+        $prix = $tarification->calculer($menu, $nbPersonnes, $lieuPrestation, $distanceKm);
+        $prixMenu = $prix['prix_menu'];
+        $prixLivraison = $prix['prix_livraison'];
 
         $numeroCommande = 'CMD-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -5));
 
@@ -260,6 +260,7 @@ class UserApiController extends AbstractController
         $commande->setLieuPrestation($lieuPrestation);
         $commande->setHeureLivraison($heureLivraison);
         $commande->setNombrePersonne($nbPersonnes);
+        $commande->setDistanceKm($distanceKm);
         $commande->setPrixMenu($prixMenu);
         $commande->setPrixLivraison($prixLivraison);
         $commande->setStatut('en cours');
@@ -281,7 +282,7 @@ class UserApiController extends AbstractController
             'nombre_personne' => $nbPersonnes,
             'prix_menu' => $prixMenu,
             'prix_livraison' => $prixLivraison,
-            'prix_total' => $prixMenu + $prixLivraison,
+            'prix_total' => $prix['prix_total'],
             'date_commande' => date('Y-m-d'),
             'statut' => 'en cours',
             'client_email' => $user->getEmail(),
@@ -289,7 +290,7 @@ class UserApiController extends AbstractController
         $mongoDbService->ajouterSuivi($numeroCommande, 'en cours');
 
         try {
-            $total = $prixMenu + $prixLivraison;
+            $total = $prix['prix_total'];
             $emailMsg = (new Email())
                 ->from('maxnabil2ait@gmail.com')
                 ->to($user->getEmail())
@@ -326,7 +327,7 @@ class UserApiController extends AbstractController
                     new OA\Property(property: 'lieu_prestation', type: 'string', example: '10 place Gambetta, 33000 Bordeaux'),
                     new OA\Property(property: 'heure_livraison', type: 'string', example: '13:00'),
                     new OA\Property(property: 'pret_materiel', type: 'boolean'),
-                    new OA\Property(property: 'distance_km', type: 'integer')
+                    new OA\Property(property: 'distance_km', type: 'integer', description: 'Facultatif : la distance enregistrée à la commande est réutilisée si elle est omise.')
                 ]
             )
         ),
@@ -340,7 +341,8 @@ class UserApiController extends AbstractController
         Commande $commande,
         Request $request,
         EntityManagerInterface $em,
-        MongoDbService $mongoDbService
+        MongoDbService $mongoDbService,
+        TarificationService $tarification
     ): JsonResponse {
         if ($commande->getUtilisateur() !== $this->getUser()) {
             return $this->json(['success' => false, 'message' => 'Accès interdit.'], 403);
@@ -365,12 +367,6 @@ class UserApiController extends AbstractController
                 ], 400);
             }
             $commande->setNombrePersonne($nbPersonnes);
-
-            $prixMenu = $menu->getPrixParPersonne() * $nbPersonnes;
-            if ($nbPersonnes >= $menu->getNombrePersonneMinimum() + 5) {
-                $prixMenu *= 0.9;
-            }
-            $commande->setPrixMenu($prixMenu);
         }
 
         if (isset($data['date_prestation'])) {
@@ -383,13 +379,19 @@ class UserApiController extends AbstractController
 
         if (isset($data['lieu_prestation'])) {
             $lieu = $this->sanitize($data['lieu_prestation']);
+
+            if ($tarification->estHorsZoneDeLivraison($lieu)) {
+                return $this->json([
+                    'success' => false,
+                    'message' => 'Nous livrons uniquement en Gironde (département 33). Votre adresse est hors de notre zone de livraison.'
+                ], 400);
+            }
+
             $commande->setLieuPrestation($lieu);
-            $distanceKm = (int) ($data['distance_km'] ?? 0);
-            $lieuLower = strtolower($lieu);
-            $prixLivraison = (str_contains($lieuLower, 'bordeaux') || $distanceKm === 0)
-                ? 0.0
-                : 5.0 + (0.59 * $distanceKm);
-            $commande->setPrixLivraison($prixLivraison);
+        }
+
+        if (isset($data['distance_km'])) {
+            $commande->setDistanceKm((int) $data['distance_km']);
         }
 
         if (isset($data['heure_livraison'])) {
@@ -400,6 +402,22 @@ class UserApiController extends AbstractController
             $commande->setPretMateriel((bool) $data['pret_materiel']);
         }
 
+        // Recalcul unique à partir de l'état final de la commande : la distance
+        // enregistrée est réutilisée si le client ne la renvoie pas, ce qui
+        // évite de perdre la part kilométrique à chaque modification.
+        if ($tarification->estZoneGratuite($commande->getLieuPrestation())) {
+            $commande->setDistanceKm(null);
+        }
+
+        $prix = $tarification->calculer(
+            $menu,
+            $commande->getNombrePersonne(),
+            $commande->getLieuPrestation(),
+            $commande->getDistanceKm()
+        );
+        $commande->setPrixMenu($prix['prix_menu']);
+        $commande->setPrixLivraison($prix['prix_livraison']);
+
         $em->flush();
 
         $mongoDbService->syncCommande([
@@ -408,7 +426,7 @@ class UserApiController extends AbstractController
             'nombre_personne' => $commande->getNombrePersonne(),
             'prix_menu'       => $commande->getPrixMenu(),
             'prix_livraison'  => $commande->getPrixLivraison(),
-            'prix_total'      => $commande->getPrixMenu() + $commande->getPrixLivraison(),
+            'prix_total'      => $commande->getPrixTotal(),
             'date_commande'   => $commande->getDateCommande()?->format('Y-m-d') ?? date('Y-m-d'),
             'statut'          => $commande->getStatut(),
             'client_email'    => $commande->getUtilisateur()->getEmail(),
@@ -462,7 +480,7 @@ class UserApiController extends AbstractController
             'nombre_personne' => $commande->getNombrePersonne(),
             'prix_menu' => $commande->getPrixMenu(),
             'prix_livraison' => $commande->getPrixLivraison(),
-            'prix_total' => $commande->getPrixMenu() + $commande->getPrixLivraison(),
+            'prix_total' => $commande->getPrixTotal(),
             'date_commande' => $commande->getDateCommande() ? $commande->getDateCommande()->format('Y-m-d') : date('Y-m-d'),
             'statut' => 'annulée',
             'client_email' => $commande->getUtilisateur()->getEmail(),
@@ -649,7 +667,7 @@ class UserApiController extends AbstractController
             'nombre_personne' => $commande->getNombrePersonne(),
             'prix_menu' => $commande->getPrixMenu(),
             'prix_livraison' => $commande->getPrixLivraison(),
-            'prix_total' => $commande->getPrixMenu() + $commande->getPrixLivraison(),
+            'prix_total' => $commande->getPrixTotal(),
             'statut' => $commande->getStatut(),
             'pret_materiel' => $commande->isPretMateriel(),
             'restitution_materiel' => $commande->isRestitutionMateriel(),

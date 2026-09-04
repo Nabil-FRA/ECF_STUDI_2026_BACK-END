@@ -6,8 +6,10 @@ use App\Entity\Commande;
 use App\Form\CommandeFormType;
 use App\Repository\MenuRepository;
 use App\Service\MongoDbService;
+use App\Service\TarificationService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\Form\FormError;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Mailer\MailerInterface;
@@ -25,6 +27,7 @@ class CommandeController extends AbstractController
         MenuRepository $menuRepository,
         MailerInterface $mailer,
         MongoDbService $mongoDbService,
+        TarificationService $tarification,
         ?int $menu_id = null
     ): Response {
         $user = $this->getUser();
@@ -41,6 +44,20 @@ class CommandeController extends AbstractController
         $form = $this->createForm(CommandeFormType::class, $commande);
         $form->handleRequest($request);
 
+        if ($form->isSubmitted() && ($lieu = (string) $commande->getLieuPrestation()) !== '') {
+            if ($tarification->estHorsZoneDeLivraison($lieu)) {
+                $form->get('lieu_prestation')->addError(new FormError(
+                    'Nous livrons uniquement en Gironde (codes postaux 33xxx).'
+                ));
+            }
+
+            if ($tarification->distanceRequise($lieu, $commande->getDistanceKm())) {
+                $form->get('distance_km')->addError(new FormError(
+                    'Indiquez la distance depuis Bordeaux : la livraison hors Bordeaux est facturée au kilomètre.'
+                ));
+            }
+        }
+
         if ($form->isSubmitted() && $form->isValid()) {
             $menu = $commande->getMenu();
             $nbPersonnes = $commande->getNombrePersonne();
@@ -55,20 +72,20 @@ class CommandeController extends AbstractController
                 return $this->redirectToRoute('app_menus');
             }
 
-            $prixMenu = $menu->getPrixParPersonne() * $nbPersonnes;
-
-            if ($nbPersonnes >= $menu->getNombrePersonneMinimum() + 5) {
-                $prixMenu = $prixMenu * 0.9;
+            // La distance ne sert qu'en dehors de la zone gratuite : on ne
+            // conserve pas de valeur parasite pour une livraison bordelaise.
+            if ($tarification->estZoneGratuite($commande->getLieuPrestation())) {
+                $commande->setDistanceKm(null);
             }
 
-            $lieuPrestation = strtolower($commande->getLieuPrestation());
-            $distanceKm = (int) $request->request->get('distance_km', 0);
-
-            if (str_contains($lieuPrestation, 'bordeaux') || $distanceKm === 0) {
-                $prixLivraison = 0.0;
-            } else {
-                $prixLivraison = 5.0 + (0.59 * $distanceKm);
-            }
+            $prix = $tarification->calculer(
+                $menu,
+                $nbPersonnes,
+                $commande->getLieuPrestation(),
+                $commande->getDistanceKm()
+            );
+            $prixMenu = $prix['prix_menu'];
+            $prixLivraison = $prix['prix_livraison'];
 
             $numeroCommande = 'CMD-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -5));
 
@@ -98,7 +115,7 @@ class CommandeController extends AbstractController
                 'nombre_personne' => $nbPersonnes,
                 'prix_menu' => $prixMenu,
                 'prix_livraison' => $prixLivraison,
-                'prix_total' => $prixMenu + $prixLivraison,
+                'prix_total' => $prix['prix_total'],
                 'date_commande' => date('Y-m-d'),
                 'statut' => 'en cours',
                 'client_email' => $user->getEmail(),
@@ -108,7 +125,7 @@ class CommandeController extends AbstractController
             $mongoDbService->ajouterSuivi($numeroCommande, 'en cours');
 
             // Mail de confirmation de commande
-            $total = $prixMenu + $prixLivraison;
+            $total = $prix['prix_total'];
             $email = (new Email())
                 ->from('maxnabil2ait@gmail.com')
                 ->to($user->getEmail())
