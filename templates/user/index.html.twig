@@ -43,7 +43,7 @@
                         <td style="padding: 10px; border: 1px solid #ddd;">{{ commande.menu.titre }}</td>
                         <td style="padding: 10px; border: 1px solid #ddd;">{{ commande.datePrestation|date('d/m/Y') }}</td>
                         <td style="padding: 10px; border: 1px solid #ddd;">{{ commande.nombrePersonne }}</td>
-                        <td style="padding: 10px; border: 1px solid #ddd;">{{ (commande.prixMenu + commande.prixLivraison)|number_format(2, ',', ' ') }} €</td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">{{ commande.prixTotal|number_format(2, ',', ' ') }} €</td>
                         <td style="padding: 10px; border: 1px solid #ddd;">
                             <span style="padding: 3px 8px; border-radius: 4px; font-size: 0.85em;
                                 background: {% if commande.statut == 'en cours' %}#fff3cd{% elseif commande.statut == 'accepté' %}#cce5ff{% elseif commande.statut == 'terminée' %}#d4edda{% elseif commande.statut == 'annulée' %}#f8d7da{% else %}#e9ecef{% endif %};">

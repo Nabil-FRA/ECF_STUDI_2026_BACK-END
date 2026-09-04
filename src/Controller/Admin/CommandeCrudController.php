@@ -68,6 +68,8 @@ class CommandeCrudController extends AbstractCrudController
             TextField::new('lieu_prestation', 'Lieu'),
             TextField::new('heure_livraison', 'Heure de livraison'),
             IntegerField::new('nombre_personne', 'Nombre de personnes'),
+            IntegerField::new('distance_km', 'Distance depuis Bordeaux (km)')
+                ->setFormTypeOption('required', false),
 
             NumberField::new('prix_menu', 'Prix du menu (€)'),
             NumberField::new('prix_livraison', 'Frais de livraison (€)'),
@@ -168,7 +170,7 @@ class CommandeCrudController extends AbstractCrudController
             'nombre_personne' => $commande->getNombrePersonne(),
             'prix_menu' => $commande->getPrixMenu(),
             'prix_livraison' => $commande->getPrixLivraison(),
-            'prix_total' => $commande->getPrixMenu() + $commande->getPrixLivraison(),
+            'prix_total' => $commande->getPrixTotal(),
             'date_commande' => $commande->getDateCommande() ? $commande->getDateCommande()->format('Y-m-d') : date('Y-m-d'),
             'statut' => $commande->getStatut(),
             'client_email' => $commande->getUtilisateur() ? $commande->getUtilisateur()->getEmail() : '',
