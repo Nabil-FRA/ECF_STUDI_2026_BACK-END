@@ -30,7 +30,7 @@ class SyncMongoCommand extends Command
                 'nombre_personne' => $commande->getNombrePersonne(),
                 'prix_menu' => $commande->getPrixMenu(),
                 'prix_livraison' => $commande->getPrixLivraison(),
-                'prix_total' => $commande->getPrixMenu() + $commande->getPrixLivraison(),
+                'prix_total' => $commande->getPrixTotal(),
                 'date_commande' => $commande->getDateCommande() ? $commande->getDateCommande()->format('Y-m-d') : date('Y-m-d'),
                 'statut' => $commande->getStatut(),
                 'client_email' => $commande->getUtilisateur() ? $commande->getUtilisateur()->getEmail() : '',

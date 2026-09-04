@@ -253,7 +253,7 @@ class AdminApiController extends AbstractController
                 'date_prestation'  => $c->getDatePrestation()?->format('Y-m-d'),
                 'lieu_prestation'  => $c->getLieuPrestation() ?? '',
                 'nombre_personne'  => $c->getNombrePersonne(),
-                'prix_total'       => $c->getPrixMenu() + $c->getPrixLivraison(),
+                'prix_total'       => $c->getPrixTotal(),
                 'statut'           => $c->getStatut(),
                 'client_email'     => $c->getUtilisateur() ? $c->getUtilisateur()->getEmail() : '',
                 'menu_titre'       => $c->getMenu() ? $c->getMenu()->getTitre() : '',

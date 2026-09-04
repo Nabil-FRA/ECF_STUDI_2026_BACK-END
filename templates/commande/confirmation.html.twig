@@ -24,7 +24,7 @@
         <p><strong>Prix du menu :</strong> {{ commande.prixMenu|number_format(2, ',', ' ') }} €</p>
         <p><strong>Frais de livraison :</strong> {{ commande.prixLivraison|number_format(2, ',', ' ') }} €</p>
         <p style="font-size: 1.3em; font-weight: bold;">
-            Total : {{ (commande.prixMenu + commande.prixLivraison)|number_format(2, ',', ' ') }} €
+            Total : {{ commande.prixTotal|number_format(2, ',', ' ') }} €
         </p>
     </div>
 
