@@ -1,10 +1,10 @@
 # config/packages/security.yaml
 # ==========================================
-# CONFIGURATION SÉCURITÉ COMPLÈTE
+# CONFIGURATION SÉCURITÉ
 # ==========================================
-# - Firewall séparé pour l'API (stateless, token)
-# - Firewall existant pour les pages Twig (session)
-# - Contrôle d'accès granulaire par rôle
+# L'application est une API pure : un seul firewall, sans état, authentifié
+# par token Bearer. Aucune session, aucun formulaire de connexion.
+# Le contrôle d'accès est granulaire par rôle.
 security:
     password_hashers:
         Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface: 'auto'
@@ -21,33 +21,18 @@ security:
             security: false
 
         # ================================
-        # FIREWALL API (NOUVEAU)
+        # FIREWALL API (UNIQUE)
         # ================================
         # - Stateless : pas de session côté serveur
         # - Authentification par token Bearer
         # - Les routes /api/auth et les GET publics sont accessibles sans token
+        # - Couvre toute l'application : il n'existe plus d'autre point d'entrée
         api:
-            pattern: ^/api/
             stateless: true
             provider: app_user_provider
             custom_authenticators:
                 - App\Security\ApiTokenAuthenticator
-            # Permettre l'accès anonyme aux routes publiques
             # Le contrôle fin est fait dans access_control ci-dessous
-
-        # ================================
-        # FIREWALL TWIG (EXISTANT)
-        # ================================
-        main:
-            lazy: true
-            provider: app_user_provider
-            form_login:
-                login_path: app_login
-                check_path: app_login
-                enable_csrf: true
-                default_target_path: admin
-            logout:
-                path: app_logout
 
     # ================================
     # CONTRÔLE D'ACCÈS
@@ -57,6 +42,7 @@ security:
         - { path: ^/api/doc, roles: PUBLIC_ACCESS }
 
         # Routes API publiques (pas de token requis)
+        - { path: ^/api/csrf-token, roles: PUBLIC_ACCESS, methods: [GET] }
         - { path: ^/api/auth, roles: PUBLIC_ACCESS }
         - { path: ^/api/menus, roles: PUBLIC_ACCESS, methods: [GET] }
         - { path: ^/api/themes, roles: PUBLIC_ACCESS }
@@ -71,9 +57,6 @@ security:
         - { path: ^/api/admin, roles: ROLE_ADMIN }
         - { path: ^/api/employe, roles: ROLE_EMPLOYE }
         - { path: ^/api/user, roles: ROLE_USER }
-
-        # Routes Twig existantes
-        - { path: ^/admin, roles: [ROLE_ADMIN, ROLE_EMPLOYE] }
 
 when@test:
     security:
