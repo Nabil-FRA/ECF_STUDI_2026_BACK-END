@@ -34,11 +34,11 @@ class MenuApiController extends AbstractController
     )]
     public function list(Request $request, MenuRepository $menuRepository): JsonResponse
     {
-        $regimeId = $request->query->getInt('regime', 0) ?: null;
-        $themeId = $request->query->getInt('theme', 0) ?: null;
-        $prixMin = $request->query->get('prix_min') !== null ? (float) $request->query->get('prix_min') : null;
-        $prixMax = $request->query->get('prix_max') !== null ? (float) $request->query->get('prix_max') : null;
-        $nbPersonnes = $request->query->getInt('nb_personnes', 0) ?: null;
+        $regimeId = $this->filtreEntier($request, 'regime');
+        $themeId = $this->filtreEntier($request, 'theme');
+        $nbPersonnes = $this->filtreEntier($request, 'nb_personnes');
+        $prixMin = $this->filtreDecimal($request, 'prix_min');
+        $prixMax = $this->filtreDecimal($request, 'prix_max');
 
         $menus = $menuRepository->findAll();
         $result = [];
@@ -173,6 +173,33 @@ class MenuApiController extends AbstractController
             ];
         }
         return $this->json($allergenes);
+    }
+
+    /**
+     * Filtre optionnel de type entier.
+     *
+     * InputBag::getInt() leve une BadRequestException, donc un 400, des que la
+     * valeur n'est pas un entier : un client qui se trompe sur un filtre
+     * facultatif faisait echouer toute la requete. Ici une valeur inexploitable
+     * est simplement ignoree.
+     */
+    private function filtreEntier(Request $request, string $cle): ?int
+    {
+        $valeur = $request->query->all()[$cle] ?? null;
+
+        if (!is_scalar($valeur) || !ctype_digit((string) $valeur)) {
+            return null;
+        }
+
+        return (int) $valeur ?: null;
+    }
+
+    /** Filtre optionnel de type decimal, meme principe. */
+    private function filtreDecimal(Request $request, string $cle): ?float
+    {
+        $valeur = $request->query->all()[$cle] ?? null;
+
+        return (is_scalar($valeur) && is_numeric($valeur)) ? (float) $valeur : null;
     }
 
     private function serializeMenu(Menu $menu): array
