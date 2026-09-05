@@ -4,10 +4,10 @@ namespace App\Controller\Api;
 
 use App\Entity\Avis;
 use App\Entity\Commande;
+use App\Entity\Menu;
 use App\Repository\MenuRepository;
 use App\Security\ApiTokenAuthenticator;
 use App\Service\MongoDbService;
-use App\Service\TarificationService;
 use Doctrine\ORM\EntityManagerInterface;
 use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -25,6 +25,31 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[OA\Tag(name: 'Utilisateur')]
 class UserApiController extends AbstractController
 {
+    // ================================
+    // RÈGLES TARIFAIRES
+    // ================================
+
+    /** Remise appliquée sur le prix du menu pour les grosses commandes (10 %). */
+    private const REMISE_GROS_VOLUME = 0.10;
+
+    /** Nombre de personnes au-dessus du minimum du menu déclenchant la remise. */
+    private const SEUIL_REMISE = 5;
+
+    /** Forfait de prise en charge dû pour toute livraison hors zone gratuite. */
+    private const FORFAIT_LIVRAISON = 5.0;
+
+    /** Prix au kilomètre, facturé en plus du forfait. */
+    private const PRIX_PAR_KM = 0.59;
+
+    /** Codes postaux de Bordeaux : livraison offerte. */
+    private const CODES_POSTAUX_ZONE_GRATUITE = ['33000', '33100', '33200', '33300', '33800'];
+
+    /** Département desservi (Gironde). */
+    private const DEPARTEMENT_LIVRE = '33';
+
+    /** Distance maximale acceptée, en kilomètres. */
+    private const DISTANCE_MAX_KM = 150;
+
     #[Route('/profile', name: 'api_user_profile', methods: ['GET'])]
     #[OA\Get(
         summary: 'Mon profil',
@@ -193,8 +218,7 @@ class UserApiController extends AbstractController
         MenuRepository $menuRepository,
         EntityManagerInterface $em,
         MongoDbService $mongoDbService,
-        MailerInterface $mailer,
-        TarificationService $tarification
+        MailerInterface $mailer
     ): JsonResponse {
         $user = $this->getUser();
         $data = json_decode($request->getContent(), true);
@@ -235,7 +259,7 @@ class UserApiController extends AbstractController
             return $this->json(['success' => false, 'message' => 'Date de prestation invalide.'], 400);
         }
 
-        if ($tarification->estHorsZoneDeLivraison($lieuPrestation)) {
+        if ($this->estHorsZoneDeLivraison($lieuPrestation)) {
             return $this->json([
                 'success' => false,
                 'message' => 'Nous livrons uniquement en Gironde (département 33). Votre adresse est hors de notre zone de livraison.'
@@ -243,13 +267,12 @@ class UserApiController extends AbstractController
         }
 
         // La distance ne sert qu'en dehors de la zone gratuite.
-        if ($tarification->estZoneGratuite($lieuPrestation)) {
+        if ($this->estZoneGratuite($lieuPrestation)) {
             $distanceKm = null;
         }
 
-        $prix = $tarification->calculer($menu, $nbPersonnes, $lieuPrestation, $distanceKm);
-        $prixMenu = $prix['prix_menu'];
-        $prixLivraison = $prix['prix_livraison'];
+        $prixMenu = $this->calculerPrixMenu($menu, $nbPersonnes);
+        $prixLivraison = $this->calculerPrixLivraison($lieuPrestation, $distanceKm);
 
         $numeroCommande = 'CMD-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -5));
 
@@ -282,7 +305,7 @@ class UserApiController extends AbstractController
             'nombre_personne' => $nbPersonnes,
             'prix_menu' => $prixMenu,
             'prix_livraison' => $prixLivraison,
-            'prix_total' => $prix['prix_total'],
+            'prix_total' => $commande->getPrixTotal(),
             'date_commande' => date('Y-m-d'),
             'statut' => 'en cours',
             'client_email' => $user->getEmail(),
@@ -290,7 +313,7 @@ class UserApiController extends AbstractController
         $mongoDbService->ajouterSuivi($numeroCommande, 'en cours');
 
         try {
-            $total = $prix['prix_total'];
+            $total = $commande->getPrixTotal();
             $emailMsg = (new Email())
                 ->from('maxnabil2ait@gmail.com')
                 ->to($user->getEmail())
@@ -341,8 +364,7 @@ class UserApiController extends AbstractController
         Commande $commande,
         Request $request,
         EntityManagerInterface $em,
-        MongoDbService $mongoDbService,
-        TarificationService $tarification
+        MongoDbService $mongoDbService
     ): JsonResponse {
         if ($commande->getUtilisateur() !== $this->getUser()) {
             return $this->json(['success' => false, 'message' => 'Accès interdit.'], 403);
@@ -380,7 +402,7 @@ class UserApiController extends AbstractController
         if (isset($data['lieu_prestation'])) {
             $lieu = $this->sanitize($data['lieu_prestation']);
 
-            if ($tarification->estHorsZoneDeLivraison($lieu)) {
+            if ($this->estHorsZoneDeLivraison($lieu)) {
                 return $this->json([
                     'success' => false,
                     'message' => 'Nous livrons uniquement en Gironde (département 33). Votre adresse est hors de notre zone de livraison.'
@@ -405,18 +427,16 @@ class UserApiController extends AbstractController
         // Recalcul unique à partir de l'état final de la commande : la distance
         // enregistrée est réutilisée si le client ne la renvoie pas, ce qui
         // évite de perdre la part kilométrique à chaque modification.
-        if ($tarification->estZoneGratuite($commande->getLieuPrestation())) {
+        if ($this->estZoneGratuite($commande->getLieuPrestation())) {
             $commande->setDistanceKm(null);
         }
 
-        $prix = $tarification->calculer(
-            $menu,
-            $commande->getNombrePersonne(),
-            $commande->getLieuPrestation(),
-            $commande->getDistanceKm()
+        $commande->setPrixMenu(
+            $this->calculerPrixMenu($menu, $commande->getNombrePersonne())
         );
-        $commande->setPrixMenu($prix['prix_menu']);
-        $commande->setPrixLivraison($prix['prix_livraison']);
+        $commande->setPrixLivraison(
+            $this->calculerPrixLivraison($commande->getLieuPrestation(), $commande->getDistanceKm())
+        );
 
         $em->flush();
 
@@ -653,6 +673,73 @@ class UserApiController extends AbstractController
         $em->flush();
 
         return $this->json(['success' => true, 'message' => 'Compte supprimé.']);
+    }
+
+    // ================================
+    // CALCUL DU PRIX
+    // ================================
+
+    /**
+     * Prix du menu : prix par personne x nombre de personnes, moins la remise
+     * gros volume le cas échéant. Le prix unitaire est relu en base, jamais
+     * repris de la requête.
+     */
+    private function calculerPrixMenu(Menu $menu, int $nbPersonnes): float
+    {
+        $prix = $menu->getPrixParPersonne() * $nbPersonnes;
+
+        if ($nbPersonnes >= $menu->getNombrePersonneMinimum() + self::SEUIL_REMISE) {
+            $prix *= (1 - self::REMISE_GROS_VOLUME);
+        }
+
+        return round($prix, 2);
+    }
+
+    /**
+     * Prix de la livraison : offerte à Bordeaux, sinon forfait + prix au km.
+     *
+     * Une distance nulle ou inconnue hors de la zone gratuite ne rend pas la
+     * livraison gratuite : le forfait reste dû. La distance venant du client,
+     * elle est bornée avant d'entrer dans le calcul.
+     */
+    private function calculerPrixLivraison(string $lieuPrestation, ?int $distanceKm): float
+    {
+        if ($this->estZoneGratuite($lieuPrestation)) {
+            return 0.0;
+        }
+
+        $km = min(max(0, $distanceKm ?? 0), self::DISTANCE_MAX_KM);
+
+        return round(self::FORFAIT_LIVRAISON + self::PRIX_PAR_KM * $km, 2);
+    }
+
+    /**
+     * Zone de livraison offerte, déterminée sur le code postal de l'adresse.
+     * À défaut de code postal, on retombe sur le nom de la ville en fin
+     * d'adresse : « rue de Bordeaux, Arcachon » n'est donc pas gratuit.
+     */
+    private function estZoneGratuite(string $lieuPrestation): bool
+    {
+        $codePostal = $this->extraireCodePostal($lieuPrestation);
+
+        if ($codePostal !== null) {
+            return in_array($codePostal, self::CODES_POSTAUX_ZONE_GRATUITE, true);
+        }
+
+        return (bool) preg_match('/\bbordeaux\s*$/iu', trim($lieuPrestation));
+    }
+
+    /** Vrai si l'adresse porte un code postal hors du département desservi. */
+    private function estHorsZoneDeLivraison(string $lieuPrestation): bool
+    {
+        $codePostal = $this->extraireCodePostal($lieuPrestation);
+
+        return $codePostal !== null && !str_starts_with($codePostal, self::DEPARTEMENT_LIVRE);
+    }
+
+    private function extraireCodePostal(string $lieuPrestation): ?string
+    {
+        return preg_match('/\b(\d{5})\b/', $lieuPrestation, $matches) ? $matches[1] : null;
     }
 
     private function serializeCommande(Commande $commande): array
