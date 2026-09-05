@@ -13,16 +13,17 @@ use Symfony\Component\Security\Http\Authenticator\AbstractAuthenticator;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
 use Symfony\Component\Security\Http\Authenticator\Passport\Passport;
 use Symfony\Component\Security\Http\Authenticator\Passport\SelfValidatingPassport;
+use Symfony\Component\Security\Http\EntryPoint\AuthenticationEntryPointInterface;
 
 /**
  * Authenticator pour les requêtes API.
- * 
+ *
  * SÉCURITÉ :
  * - Vérifie le token Bearer dans le header Authorization
  * - Le token est un hash HMAC-SHA256 signé avec APP_SECRET
  * - Protège contre le timing attack via hash_equals()
  */
-class ApiTokenAuthenticator extends AbstractAuthenticator
+class ApiTokenAuthenticator extends AbstractAuthenticator implements AuthenticationEntryPointInterface
 {
     public function __construct(
         private UtilisateurRepository $utilisateurRepository,
@@ -80,11 +81,31 @@ class ApiTokenAuthenticator extends AbstractAuthenticator
         return null; // Continue la requête
     }
 
+    /**
+     * Un jeton absent, expiré ou invalide ne doit pas condamner la requête :
+     * l'en-tête Authorization est envoyé par le front sur TOUS les appels dès
+     * qu'un jeton traîne dans le navigateur, y compris vers les routes
+     * publiques. Renvoyer 401 ici rendait le site entier inutilisable pendant
+     * 24 h après l'expiration d'une session.
+     *
+     * Retourner null laisse la requête continuer sans utilisateur : c'est
+     * ensuite access_control qui tranche, route par route.
+     */
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception): ?Response
+    {
+        return null;
+    }
+
+    /**
+     * Point d'entrée du firewall : appelé quand une route protégée est atteinte
+     * sans utilisateur authentifié. Garantit une reponse JSON plutôt que la
+     * page d'erreur HTML par défaut de Symfony.
+     */
+    public function start(Request $request, ?AuthenticationException $authException = null): Response
     {
         return new JsonResponse([
             'success' => false,
-            'message' => $exception->getMessageKey()
+            'message' => 'Authentification requise : jeton absent, invalide ou expiré.'
         ], Response::HTTP_UNAUTHORIZED);
     }
 

@@ -32,6 +32,9 @@ security:
             provider: app_user_provider
             custom_authenticators:
                 - App\Security\ApiTokenAuthenticator
+            # Reponse JSON 401 quand une route protegee est atteinte sans
+            # utilisateur authentifie, au lieu de la page HTML par defaut.
+            entry_point: App\Security\ApiTokenAuthenticator
             # Le contrôle fin est fait dans access_control ci-dessous
 
     # ================================
