@@ -16,6 +16,14 @@ NC='\033[0m'
 PASS=0
 FAIL=0
 
+# Jeton CSRF : depuis l'ajout d'ApiCsrfListener, toute requête POST/PUT/PATCH/DELETE
+# sur /api/ doit porter l'en-tête X-CSRF-Token.
+CSRF_TOKEN=$(curl -s "$BASE_URL/api/csrf-token" | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
+if [ -z "$CSRF_TOKEN" ]; then
+    echo -e "${RED}Impossible d'obtenir un jeton CSRF sur $BASE_URL/api/csrf-token — l'application tourne-t-elle ?${NC}"
+    exit 1
+fi
+
 # Fonction d'affichage des résultats
 test_endpoint() {
     local METHOD=$1
@@ -26,6 +34,7 @@ test_endpoint() {
     local TOKEN=$6
 
     HEADERS="-H 'Content-Type: application/json'"
+    HEADERS="$HEADERS -H 'X-CSRF-Token: $CSRF_TOKEN'"
     if [ -n "$TOKEN" ]; then
         HEADERS="$HEADERS -H 'Authorization: Bearer $TOKEN'"
     fi
@@ -112,7 +121,7 @@ echo ""
 
 # 2.2 Login client (jean.dupont@gmail.com / Password1!)
 echo -e "${BLUE}→ Connexion client...${NC}"
-RESPONSE_LOGIN=$(curl -s -X POST "$BASE_URL/api/auth/login" \
+RESPONSE_LOGIN=$(curl -s -H "X-CSRF-Token: $CSRF_TOKEN" -X POST "$BASE_URL/api/auth/login" \
     -H "Content-Type: application/json" \
     -d '{"email":"jean.dupont@gmail.com","password":"Password1!"}')
 
@@ -132,7 +141,7 @@ echo ""
 
 # 2.3 Login employé
 echo -e "${BLUE}→ Connexion employé...${NC}"
-RESPONSE_EMP=$(curl -s -X POST "$BASE_URL/api/auth/login" \
+RESPONSE_EMP=$(curl -s -H "X-CSRF-Token: $CSRF_TOKEN" -X POST "$BASE_URL/api/auth/login" \
     -H "Content-Type: application/json" \
     -d '{"email":"julie@viteetgourmand.fr","password":"Password1!"}')
 
@@ -150,7 +159,7 @@ echo ""
 
 # 2.4 Login admin
 echo -e "${BLUE}→ Connexion admin...${NC}"
-RESPONSE_ADMIN=$(curl -s -X POST "$BASE_URL/api/auth/login" \
+RESPONSE_ADMIN=$(curl -s -H "X-CSRF-Token: $CSRF_TOKEN" -X POST "$BASE_URL/api/auth/login" \
     -H "Content-Type: application/json" \
     -d '{"email":"jose@viteetgourmand.fr","password":"Password1!"}')
 
@@ -235,7 +244,7 @@ else
     echo ""
 
     # 3.2 Modifier le profil
-    RESP=$(curl -s -w "\n%{http_code}" -X PUT "$BASE_URL/api/user/profile" \
+    RESP=$(curl -s -w "\n%{http_code}" -H "X-CSRF-Token: $CSRF_TOKEN" -X PUT "$BASE_URL/api/user/profile" \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer $CLIENT_TOKEN" \
         -d '{"ville":"Bordeaux Centre","telephone":"0677889900"}')
@@ -268,7 +277,7 @@ else
     echo ""
 
     # 3.4 Créer une commande
-    RESP=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/user/commandes" \
+    RESP=$(curl -s -w "\n%{http_code}" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST "$BASE_URL/api/user/commandes" \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer $CLIENT_TOKEN" \
         -d "{\"menu_id\":3,\"nombre_personne\":4,\"date_prestation\":\"2026-06-15\",\"lieu_prestation\":\"20 rue de la Paix, Bordeaux\",\"heure_livraison\":\"12h30\",\"pret_materiel\":false,\"distance_km\":0}")
@@ -306,7 +315,7 @@ else
 
     # 3.5b Modifier la commande fraîchement créée (statut = en cours)
     if [ -n "$NEW_CMD_ID" ]; then
-        RESP=$(curl -s -w "\n%{http_code}" -X PUT "$BASE_URL/api/user/commandes/$NEW_CMD_ID" \
+        RESP=$(curl -s -w "\n%{http_code}" -H "X-CSRF-Token: $CSRF_TOKEN" -X PUT "$BASE_URL/api/user/commandes/$NEW_CMD_ID" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $CLIENT_TOKEN" \
             -d '{"nombre_personne":6,"lieu_prestation":"42 avenue des Fleurs, Lyon","date_prestation":"2026-07-01"}')
@@ -326,7 +335,7 @@ else
     echo ""
 
     # 3.5c Modifier commande terminée (statut ≠ en cours — doit échouer)
-    RESP=$(curl -s -w "\n%{http_code}" -X PUT "$BASE_URL/api/user/commandes/1" \
+    RESP=$(curl -s -w "\n%{http_code}" -H "X-CSRF-Token: $CSRF_TOKEN" -X PUT "$BASE_URL/api/user/commandes/1" \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer $CLIENT_TOKEN" \
         -d '{"nombre_personne":10}')
@@ -342,7 +351,7 @@ else
 
     # 3.6 Annuler la commande fraîchement créée
     if [ -n "$NEW_CMD_ID" ]; then
-        RESP=$(curl -s -w "\n%{http_code}" -X PUT "$BASE_URL/api/user/commandes/$NEW_CMD_ID/annuler" \
+        RESP=$(curl -s -w "\n%{http_code}" -H "X-CSRF-Token: $CSRF_TOKEN" -X PUT "$BASE_URL/api/user/commandes/$NEW_CMD_ID/annuler" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $CLIENT_TOKEN")
         CODE=$(echo "$RESP" | tail -1)
@@ -361,7 +370,7 @@ else
     echo ""
 
     # 3.7 Donner un avis sur commande terminée (commande 1 = terminée, appartient à client1)
-    RESP=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/user/commandes/1/avis" \
+    RESP=$(curl -s -w "\n%{http_code}" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST "$BASE_URL/api/user/commandes/1/avis" \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer $CLIENT_TOKEN" \
         -d '{"note":5,"description":"Test avis depuis le script de test API"}')
@@ -446,7 +455,7 @@ else
     echo ""
 
     # 4.2 Changer le statut d'une commande (commande 4 = accepté → en préparation)
-    CODE=$(curl -s -o /tmp/api_body.txt -w "%{http_code}" -X PUT "$BASE_URL/api/employe/commandes/4/statut" \
+    CODE=$(curl -s -o /tmp/api_body.txt -w "%{http_code}" -H "X-CSRF-Token: $CSRF_TOKEN" -X PUT "$BASE_URL/api/employe/commandes/4/statut" \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer $EMPLOYE_TOKEN" \
         -d '{"statut":"en pr\u00e9paration"}')
@@ -462,7 +471,7 @@ else
     echo ""
 
     # 4.3 Annulation sans motif (doit échouer)
-    CODE=$(curl -s -o /tmp/api_body.txt -w "%{http_code}" -X PUT "$BASE_URL/api/employe/commandes/7/statut" \
+    CODE=$(curl -s -o /tmp/api_body.txt -w "%{http_code}" -H "X-CSRF-Token: $CSRF_TOKEN" -X PUT "$BASE_URL/api/employe/commandes/7/statut" \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer $EMPLOYE_TOKEN" \
         -d '{"statut":"annul\u00e9e"}')
@@ -476,7 +485,7 @@ else
     echo ""
 
     # 4.4 Annulation avec motif (doit réussir)
-    CODE=$(curl -s -o /tmp/api_body.txt -w "%{http_code}" -X PUT "$BASE_URL/api/employe/commandes/7/statut" \
+    CODE=$(curl -s -o /tmp/api_body.txt -w "%{http_code}" -H "X-CSRF-Token: $CSRF_TOKEN" -X PUT "$BASE_URL/api/employe/commandes/7/statut" \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer $EMPLOYE_TOKEN" \
         -d '{"statut":"annul\u00e9e","mode_contact_client":"telephone","motif_annulation":"Client a demand\u00e9 annulation par tel"}')
@@ -506,7 +515,7 @@ else
     echo ""
 
     # 4.6 Valider un avis (avis id=5 = en attente dans les fixtures)
-    CODE=$(curl -s -o /tmp/api_body.txt -w "%{http_code}" -X PUT "$BASE_URL/api/employe/avis/5/statut" \
+    CODE=$(curl -s -o /tmp/api_body.txt -w "%{http_code}" -H "X-CSRF-Token: $CSRF_TOKEN" -X PUT "$BASE_URL/api/employe/avis/5/statut" \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer $EMPLOYE_TOKEN" \
         -d '{"statut":"valid\u00e9"}')
@@ -561,7 +570,7 @@ else
 
     # 5.2 Créer un employé
     EMP_EMAIL="employe_test_$(date +%s)@viteetgourmand.fr"
-    RESP=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/admin/employes" \
+    RESP=$(curl -s -w "\n%{http_code}" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST "$BASE_URL/api/admin/employes" \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer $ADMIN_TOKEN" \
         -d "{\"email\":\"$EMP_EMAIL\",\"password\":\"EmployePass1!@\",\"nom\":\"TestEmploye\",\"prenom\":\"Script\"}")
@@ -579,7 +588,7 @@ else
     echo ""
 
     # 5.3 Désactiver un compte (utilisateur id=4, sophie.bernard)
-    RESP=$(curl -s -w "\n%{http_code}" -X PUT "$BASE_URL/api/admin/utilisateurs/4/toggle" \
+    RESP=$(curl -s -w "\n%{http_code}" -H "X-CSRF-Token: $CSRF_TOKEN" -X PUT "$BASE_URL/api/admin/utilisateurs/4/toggle" \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer $ADMIN_TOKEN")
     CODE=$(echo "$RESP" | tail -1)
@@ -593,7 +602,7 @@ else
     echo ""
 
     # 5.4 Réactiver le même compte
-    RESP=$(curl -s -w "\n%{http_code}" -X PUT "$BASE_URL/api/admin/utilisateurs/4/toggle" \
+    RESP=$(curl -s -w "\n%{http_code}" -H "X-CSRF-Token: $CSRF_TOKEN" -X PUT "$BASE_URL/api/admin/utilisateurs/4/toggle" \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer $ADMIN_TOKEN")
     CODE=$(echo "$RESP" | tail -1)

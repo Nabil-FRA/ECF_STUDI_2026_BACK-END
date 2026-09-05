@@ -4,6 +4,7 @@ namespace App\Controller\Api;
 
 use App\Repository\AvisRepository;
 use App\Repository\HoraireRepository;
+use App\Security\ApiCsrfTokenManager;
 use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -151,6 +152,24 @@ class PublicApiController extends AbstractController
         return $this->json([
             'success' => true,
             'message' => 'Votre message a bien été envoyé.'
+        ]);
+    }
+
+    #[Route('/csrf-token', name: 'api_csrf_token', methods: ['GET'])]
+    #[OA\Get(
+        summary: 'Obtenir un jeton CSRF',
+        description: 'Retourne un jeton signé à renvoyer dans l\'en-tête X-CSRF-Token '
+            . 'sur toute requête POST, PUT, PATCH ou DELETE de l\'API. '
+            . 'Le CORS empêche un site tiers de lire cette réponse.',
+        responses: [
+            new OA\Response(response: 200, description: 'Jeton CSRF et sa durée de validité')
+        ]
+    )]
+    public function csrfToken(ApiCsrfTokenManager $csrf): JsonResponse
+    {
+        return $this->json([
+            'token' => $csrf->generate(),
+            'expires_in' => $csrf->ttl(),
         ]);
     }
 }
