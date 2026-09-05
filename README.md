@@ -1,7 +1,7 @@
-# Vite & Gourmand — Back-end API REST
+# Vite & Gourmand  Back-end API REST
 
-> **ECF — RNCP37674 Developpeur Web et Web Mobile**
-> Bloc de competences BC02 — Developper la partie back-end d'une application web
+> **ECF // RNCP37674 Developpeur Web et Web Mobile**
+> Bloc de competences BC02  Developper la partie back-end d'une application web
 
 Application de traiteur en ligne permettant la gestion des menus, des commandes, des clients, des employes et des statistiques. Le back-end expose une **API REST securisee** consommée par le front-end SPA, et propose egalement une **interface d'administration Twig** via EasyAdmin.
 
@@ -15,7 +15,7 @@ Application de traiteur en ligne permettant la gestion des menus, des commandes,
 4. [Installation et demarrage](#installation-et-demarrage)
 5. [Variables d'environnement](#variables-denvironnement)
 6. [Base de donnees](#base-de-donnees)
-7. [API REST — Endpoints](#api-rest--endpoints)
+7. [API REST  Endpoints](#api-rest--endpoints)
 8. [Securite](#securite)
 9. [Lancer les tests](#lancer-les-tests)
 10. [Comptes de test](#comptes-de-test)
@@ -36,9 +36,9 @@ Application de traiteur en ligne permettant la gestion des menus, des commandes,
 | Nginx | Alpine | Serveur web |
 | Docker | 20+ | Conteneurisation |
 | EasyAdmin | 4.x | Interface d'administration |
-| nelmio/cors-bundle | — | Gestion CORS |
-| Symfony Mailer | — | Envoi d'emails |
-| Mailhog | — | Serveur mail de test |
+| nelmio/cors-bundle| Gestion CORS |
+| Symfony Mailer  | Envoi d'emails |
+| Mailhog | Serveur mail de test |
 
 ---
 
@@ -77,7 +77,7 @@ vite-et-gourmand/
 ├── migrations/                         # Migrations Doctrine
 ├── docker-compose.yml
 ├── Dockerfile
-└── test_api.sh                         # Script de tests fonctionnels (53 tests)
+└── test_api.sh                         # Script de tests fonctionnels 
 ```
 
 ---
@@ -200,7 +200,7 @@ FRONTEND_URL=http://localhost:5173
 
 ## Base de donnees
 
-### PostgreSQL — Schema relationnel
+### PostgreSQLSchema relationnel
 
 | Entite | Description |
 |---|---|
@@ -216,7 +216,7 @@ FRONTEND_URL=http://localhost:5173
 | `Horaire` | Horaires d'ouverture de l'entreprise |
 | `Avis` | Avis clients (en attente, valide, refuse) |
 
-### MongoDB — Donnees NoSQL
+### MongoDB Donnees NoSQL
 
 | Collection | Contenu |
 |---|---|
@@ -233,18 +233,19 @@ en cours --> accepte --> en preparation --> en cours de livraison
 
 ---
 
-## API REST — Endpoints:
+## API REST Endpoints:
 
-### Authentification (`/api/auth`) — Public
+### Authentification (`/api/auth`)  Public
 
 | Methode | URL | Description |
 |---|---|---|
-| POST | `/api/auth/login` | Connexion — retourne un token Bearer (24h) |
+| POST | `/api/auth/login` | Connexion retourne un token Bearer (24h) |
 | POST | `/api/auth/register` | Inscription client |
 | POST | `/api/auth/forgot-password` | Demande de reinitialisation (envoi email) |
 | POST | `/api/auth/reset-password` | Reinitialisation avec token (expire apres 1h) |
 
-### Donnees publiques — Public
+### Donnees publiques
+Public
 
 | Methode | URL | Description |
 |---|---|---|
@@ -258,7 +259,7 @@ en cours --> accepte --> en preparation --> en cours de livraison
 | GET | `/api/plats` | Liste des plats |
 | POST | `/api/contact` | Formulaire de contact (honeypot anti-spam) |
 
-### Espace client (`/api/user`) — `ROLE_USER`
+### Espace client (`/api/user`) `ROLE_USER`
 
 | Methode | URL | Description |
 |---|---|---|
@@ -271,7 +272,7 @@ en cours --> accepte --> en preparation --> en cours de livraison
 | PUT | `/api/user/commandes/{id}/annuler` | Annuler une commande |
 | POST | `/api/user/commandes/{id}/avis` | Deposer un avis (commande terminee uniquement) |
 
-### Espace employe (`/api/employe`) — `ROLE_EMPLOYE`
+### Espace employe (`/api/employe`) `ROLE_EMPLOYE`
 
 | Methode | URL | Description |
 |---|---|---|
@@ -280,7 +281,7 @@ en cours --> accepte --> en preparation --> en cours de livraison
 | GET | `/api/employe/avis` | Liste de tous les avis |
 | PUT | `/api/employe/avis/{id}/statut` | Valider ou refuser un avis |
 
-### Espace administrateur (`/api/admin`) — `ROLE_ADMIN`
+### Espace administrateur (`/api/admin`) `ROLE_ADMIN`
 
 | Methode | URL | Description |
 |---|---|---|
@@ -309,7 +310,7 @@ Le token est un JSON encode en base64, signe HMAC-SHA256 :
 |---|---|
 | Authentification | Token HMAC-SHA256 signe avec `APP_SECRET`, stateless |
 | Anti-timing attack | `hash_equals()` pour toutes les comparaisons de hash |
-| Rate limiting | Login : 5 tentatives/minute — Register : 3/heure (par IP) |
+| Rate limiting | Login : 5 tentatives/minute  Register : 3/heure (par IP) |
 | Headers HTTP | CSP, HSTS, X-Frame-Options, X-XSS-Protection, Referrer-Policy |
 | CORS | Origines autorisees configurables via `CORS_ALLOW_ORIGIN` |
 | Politique mot de passe | 10 car. min., 1 maj., 1 min., 1 chiffre, 1 special (RGPD/CNIL) |
@@ -439,4 +440,4 @@ docker-compose down -v
 
 ---
 
-*Projet realise dans le cadre de l'ECF — RNCP37674 Developpeur Web et Web Mobile — Studi 2026*
+*Projet realise dans le cadre de l'ECF  RNCP37674 Developpeur Web et Web Mobile  Studi 2026*
