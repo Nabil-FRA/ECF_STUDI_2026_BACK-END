@@ -3,7 +3,7 @@
 > **ECF : RNCP37674 Developpeur Web et Web Mobile**
 > Bloc de competences BC02 : Developper la partie back-end d'une application web
 
-Application de traiteur en ligne permettant la gestion des menus, des commandes, des clients, des employes et des statistiques. Le back-end expose une **API REST securisee** consommée par le front-end SPA, et propose egalement une **interface d'administration Twig** via EasyAdmin.
+Application de traiteur en ligne permettant la gestion des menus, des commandes, des clients, des employes et des statistiques. Le back-end est une **API REST securisee** consommee par le front-end : aucune page n'est rendue cote serveur, l'administration passe elle aussi par l'API. La documentation interactive est servie sur `/api/doc`.
 
 ---
 
@@ -35,7 +35,7 @@ Application de traiteur en ligne permettant la gestion des menus, des commandes,
 | MongoDB | 6.0 | Base de donnees NoSQL (stats/suivi) |
 | Nginx | Alpine | Serveur web |
 | Docker | 20+ | Conteneurisation |
-| EasyAdmin | 4.x | Interface d'administration |
+| nelmio/api-doc-bundle | - | Documentation OpenAPI et interface Swagger |
 | nelmio/cors-bundle | - | Gestion CORS |
 | Symfony Mailer | - | Envoi d'emails |
 | Mailhog | - | Serveur mail de test |
@@ -55,8 +55,7 @@ ECF_STUDI_2026_BACK-END/
 │   │   │   ├── UserApiController.php   # espace client
 │   │   │   ├── EmployeApiController.php# espace employe
 │   │   │   └── AdminApiController.php  # espace administrateur
-│   │   ├── Admin/                      # Back-office EasyAdmin (Twig)
-│   │   └── ...                         # Controleurs Twig classiques
+│   │   └── AuthApiController.php   # inscription, connexion, mot de passe
 │   ├── Entity/                         # 11 entites Doctrine
 │   ├── Repository/                     # Repositories Doctrine
 │   ├── Security/
@@ -379,8 +378,8 @@ La commande refuse tout mot de passe qui ne respecte pas la politique.
 
 | Service | URL | Description |
 |---|---|---|
-| Application / API | http://localhost:8080 | Application principale |
-| Interface Admin (EasyAdmin) | http://localhost:8080/admin | Back-office Twig |
+| API | http://localhost:8080/api | Toutes les routes de l'application |
+| Documentation Swagger | http://localhost:8080/api/doc | Documentation interactive de l'API |
 | Adminer (PostgreSQL) | http://localhost:8081 | Interface base de donnees |
 | Mailhog (emails) | http://localhost:8025 | Visualiser les emails envoyes |
 | MongoDB | localhost:27017 | Base de donnees NoSQL |
@@ -393,9 +392,12 @@ La commande refuse tout mot de passe qui ne respecte pas la politique.
 - Mot de passe : `vg_password`
 - Base de donnees : `vite_et_gourmand`
 
-### Connexion EasyAdmin
+### Compte administrateur
 
 Compte : `jose@viteetgourmand.fr` / `QYxNxJ56HtSyFd@C`
+
+L'administration se fait depuis le front-end (`pages/espace-admin.html`), qui
+consomme les routes `/api/admin`. Le back-end n'expose plus aucune page.
 
 ---
 
